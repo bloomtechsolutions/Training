@@ -5,7 +5,7 @@
 The full-stack app for Bank of Maldives regional refresher training: Participant Hub, Trainer Studio, Refresher 360 (admin), Venue Live Screen, Engage Live activities and Beyond Refresher. It ships with the tentative **27–28 November 2026** agenda.
 
 - **Frontend:** React + TypeScript + Tailwind (Vite), mobile-first
-- **API:** one Vercel Function (`api/handler.ts` → `server/`)
+- **API:** one Vercel Function (`api/handler.ts` → `server/`), running in Singapore (`sin1`), the closest Vercel region to the Maldives
 - **Database:** Prisma Postgres on Vercel, through Prisma Client
 - **Sync:** every device polls for changes every ~2 s (about 1 s on the venue screen), so phones, trainer devices, the projector and organisers stay in step
 - **Sign-in:** personal access codes; permissions are checked on the server
