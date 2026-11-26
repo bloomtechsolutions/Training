@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { LogIn, CalendarDays, Monitor, Database, AlertTriangle, UserRound, Presentation, Crown, Loader2, ArrowLeft } from 'lucide-react';
 import { useStore, api, type Actor } from '../lib/store';
+import PublicAgenda from '../public/PublicAgenda';
 import { Button, Field, inputCls, cx } from '../components/ui';
 
 function Brand({ dark = false }: { dark?: boolean }) {
@@ -33,7 +34,7 @@ function Frame({ children }: { children: React.ReactNode }) {
   );
 }
 
-export function Login() {
+export function SignInForm({ card = false }: { card?: boolean }) {
   const { signIn, demoMode } = useStore();
   const [login, setLogin] = useState('');
   const [code, setCode] = useState('');
@@ -51,8 +52,8 @@ export function Login() {
   };
 
   return (
-    <Frame>
-      <h2 className="font-display text-3xl font-extrabold tracking-tight text-ink">Sign in</h2>
+    <div className={cx(card && 'rounded-3xl bg-white p-6 shadow-card ring-1 ring-ink/[.05]')}>
+      <h2 className={cx('font-display font-extrabold tracking-tight text-ink', card ? 'text-2xl' : 'text-3xl')}>Sign in</h2>
       <p className="mt-1 text-sm text-ink-3">Use your staff ID and the access code from the event organisers.</p>
       <form className="mt-6 space-y-4" onSubmit={submit}>
         <Field label="Staff ID or sign-in name" htmlFor="login"><input id="login" autoComplete="username" autoCapitalize="none" className={cx(inputCls, 'h-12 text-base')} value={login} onChange={(e) => setLogin(e.target.value)} placeholder="e.g. D1001" required /></Field>
@@ -63,19 +64,18 @@ export function Login() {
       <p className="mt-3 text-xs text-ink-3">Lost your code? Ask an organiser to issue a new one. Corporate single sign-on is planned.</p>
 
       {demoMode && (
-        <div className="mt-8 rounded-2xl border border-dashed border-amber-500/60 bg-amber-50 p-4">
+        <div className="mt-6 rounded-2xl border border-dashed border-amber-500/60 bg-amber-50 p-4">
           <div className="text-xs font-bold uppercase tracking-wider text-amber-700">Demo sign-in</div>
           <p className="mt-0.5 text-xs text-amber-800">Demo mode is on. Try the app as a fictional person. Organisers sign in with the admin password.</p>
-          <div className="mt-3 grid gap-2 sm:grid-cols-3">
+          <div className={cx('mt-3 grid gap-2', card ? 'grid-cols-3 lg:grid-cols-1 xl:grid-cols-1' : 'sm:grid-cols-3')}>
             <Button variant="secondary" size="sm" disabled={!!busy} onClick={() => demo('participant', 'u01')} icon={<UserRound size={15} />}>Participant</Button>
             <Button variant="secondary" size="sm" disabled={!!busy} onClick={() => demo('trainer', 't-zima')} icon={<Presentation size={15} />}>Trainer</Button>
             <Button variant="secondary" size="sm" disabled={!!busy} onClick={() => demo('leadership')} icon={<Crown size={15} />}>Leadership</Button>
           </div>
         </div>
       )}
-      <a href="/#agenda" className="mt-6 flex items-center gap-2 text-sm font-semibold text-bml hover:text-bml-700 lg:hidden"><CalendarDays size={16} /> View the programme without signing in</a>
-      <a href="/#venue" className="mt-3 flex items-center gap-2 text-sm font-semibold text-lav-600 hover:text-lav-700"><Monitor size={16} /> Setting up the venue screen? Use a display code</a>
-    </Frame>
+      <a href="/#venue" className="mt-5 flex items-center gap-2 text-sm font-semibold text-lav-600 hover:text-lav-700"><Monitor size={16} /> Setting up the venue screen? Use a display code</a>
+    </div>
   );
 }
 
@@ -129,4 +129,14 @@ export function Splash() {
       <Loader2 className="animate-spin text-ink-3" />
     </div>
   );
+}
+
+/** Signed-out home: the programme first, sign-in alongside (desktop) or below (phone). */
+export function Landing() {
+  return <PublicAgenda aside={<SignInForm card />} />;
+}
+
+/** Full-page sign-in (kept for direct use). */
+export function Login() {
+  return <Frame><SignInForm /></Frame>;
 }

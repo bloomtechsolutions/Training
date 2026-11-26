@@ -1,5 +1,5 @@
 import React, { useEffect, useMemo, useState } from 'react';
-import { ArrowLeft, CalendarDays, CheckCircle2, Coffee, MapPin, Radio, Sparkles, Waves } from 'lucide-react';
+import { ArrowLeft, LogIn, CalendarDays, CheckCircle2, Coffee, MapPin, Radio, Sparkles, Waves } from 'lucide-react';
 import { api } from '../lib/store';
 import { cx } from '../components/ui';
 import type { Session, SessionType, TrainingEvent } from '../lib/types';
@@ -23,7 +23,7 @@ const PX_PER_MIN = 1.5;
 const MIN_BLOCK = 76;
 const FOLD_AFTER = 45; // gaps longer than this fold into a wave
 
-export default function PublicAgenda({ embedded = false }: { embedded?: boolean }) {
+export default function PublicAgenda({ embedded = false, aside }: { embedded?: boolean; aside?: React.ReactNode }) {
   const [data, setData] = useState<PublicData | null>(null);
   const [error, setError] = useState('');
   const [offset, setOffset] = useState(0); // event clock minus local clock
@@ -60,13 +60,15 @@ export default function PublicAgenda({ embedded = false }: { embedded?: boolean 
     <div className={cx('min-h-screen bg-canvas', embedded && 'min-h-0 bg-transparent')}>
       {!embedded && (
         <header className="relative overflow-hidden mesh grain text-white">
-          <div className="relative mx-auto max-w-4xl px-4 pb-10 pt-6 sm:px-6">
+          <div className={cx('relative mx-auto px-4 pb-10 pt-6 sm:px-6', aside ? 'max-w-6xl' : 'max-w-4xl')}>
             <div className="flex items-center justify-between gap-3">
               <div className="flex items-center gap-2.5">
                 <div className="flex h-10 w-10 items-center justify-center rounded-2xl bg-white/15 font-display text-lg font-extrabold">R</div>
                 <div className="leading-tight"><div className="font-display font-extrabold">BML Refresher</div><div className="text-[10px] font-semibold uppercase tracking-[.16em] text-white/70">Learn. Connect. Transform.</div></div>
               </div>
-              <a href="/" className="flex h-10 items-center gap-1.5 rounded-xl bg-white/15 px-3 text-sm font-semibold hover:bg-white/25"><ArrowLeft size={15} /> Sign in</a>
+              {aside ? (
+                <button onClick={() => { document.getElementById('signin')?.scrollIntoView({ behavior: 'smooth', block: 'center' }); setTimeout(() => document.getElementById('login')?.focus(), 400); }} className="flex h-10 items-center gap-1.5 rounded-xl bg-white px-4 text-sm font-bold text-bml shadow-md hover:bg-bml-50 lg:hidden"><LogIn size={15} /> Sign in</button>
+              ) : <a href="/" className="flex h-10 items-center gap-1.5 rounded-xl bg-white/15 px-3 text-sm font-semibold hover:bg-white/25"><ArrowLeft size={15} /> Sign in</a>}
             </div>
             <div className="mt-8 text-xs font-bold uppercase tracking-[.2em] text-white/70">The programme</div>
             <h1 className="mt-1 font-display text-3xl font-extrabold leading-tight sm:text-5xl">{ev?.name ?? 'Agenda'}</h1>
@@ -75,7 +77,8 @@ export default function PublicAgenda({ embedded = false }: { embedded?: boolean 
         </header>
       )}
 
-      <main className={cx('mx-auto max-w-4xl px-4 sm:px-6', embedded ? 'py-0' : '-mt-6 pb-16')}>
+      <div className={cx(!!aside && 'mx-auto grid max-w-6xl gap-6 px-4 pb-16 sm:px-6 lg:grid-cols-[minmax(0,1fr)_360px] lg:items-start')}>
+      <main className={cx(aside ? 'relative z-10 -mt-6 min-w-0' : 'mx-auto max-w-4xl px-4 sm:px-6', !aside && (embedded ? 'py-0' : '-mt-6 pb-16'))}>
         {error ? <div className="rounded-3xl bg-white p-8 text-center text-sm text-ink-3 shadow-card">The agenda can’t be loaded right now. {error}</div>
           : !data ? <div className="h-64 animate-pulse rounded-3xl bg-white/70 shadow-card" aria-busy="true" />
           : !ev ? <div className="rounded-3xl bg-white p-10 text-center shadow-card"><CalendarDays className="mx-auto mb-3 text-ink-4" /><div className="font-display text-lg font-bold">The agenda will appear here once it’s published.</div></div>
@@ -164,6 +167,8 @@ export default function PublicAgenda({ embedded = false }: { embedded?: boolean 
             </>
           )}
       </main>
+      {aside && <aside id="signin" className="relative z-10 lg:sticky lg:top-6 lg:-mt-6">{aside}</aside>}
+      </div>
     </div>
   );
 }

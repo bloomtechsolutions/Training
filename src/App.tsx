@@ -6,7 +6,7 @@ import {
   ListChecks, Trophy, X, ChevronDown, Menu, Sparkles, Images, HelpCircle, LogOut, KeyRound,
 } from 'lucide-react';
 import { StoreProvider, useStore, demoNow, api } from './lib/store';
-import { Login, VenueLogin, SetupScreen, Splash } from './auth/Login';
+import { Landing, VenueLogin, SetupScreen, Splash } from './auth/Login';
 import AccountsAdmin from './admin/Accounts';
 import PublicAgenda from './public/PublicAgenda';
 import { NavContext } from './lib/nav';
@@ -479,7 +479,7 @@ function Gate({ standalone, publicAgenda }: { standalone: boolean; publicAgenda:
   if (status === 'loading') return <Splash />;
   if (status === 'nodb') return <SetupScreen message={statusMessage} />;
   if (status === 'error') return <SetupScreen message={statusMessage} error />;
-  if (status === 'signedOut' || !actor) return standalone ? <VenueLogin /> : <Login />;
+  if (status === 'signedOut' || !actor) return standalone ? <VenueLogin /> : <Landing />;
   if (standalone || actor.role === 'venue') return <VenueScreen standalone />;
   return <Shell />;
 }
