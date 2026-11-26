@@ -101,12 +101,16 @@ export function Avatar({ name, color = '#5B3FD9', size = 40, className, ring }: 
 export function Modal({ open, onClose, title, children, wide, footer }: { open: boolean; onClose: () => void; title: React.ReactNode; children: React.ReactNode; wide?: boolean; footer?: React.ReactNode }) {
   const ref = useRef<HTMLDivElement>(null);
   const titleId = useId();
+  // Keep the latest close handler without re-running the focus effect on every render
+  // (callers pass inline functions, which change on each keystroke).
+  const onCloseRef = useRef(onClose);
+  onCloseRef.current = onClose;
   useEffect(() => {
     if (!open) return;
     const prev = document.activeElement as HTMLElement | null;
     const t = setTimeout(() => ref.current?.querySelector<HTMLElement>('input,textarea,select,button:not([data-close])')?.focus(), 30);
     const onKey = (e: KeyboardEvent) => {
-      if (e.key === 'Escape') onClose();
+      if (e.key === 'Escape') onCloseRef.current();
       if (e.key === 'Tab' && ref.current) {
         const f = Array.from(ref.current.querySelectorAll<HTMLElement>('button,input,textarea,select,a[href],[tabindex]:not([tabindex="-1"])')).filter((el) => !el.hasAttribute('disabled'));
         if (!f.length) return;
@@ -116,7 +120,7 @@ export function Modal({ open, onClose, title, children, wide, footer }: { open: 
     };
     document.addEventListener('keydown', onKey);
     return () => { clearTimeout(t); document.removeEventListener('keydown', onKey); prev?.focus?.(); };
-  }, [open, onClose]);
+  }, [open]);
   if (!open) return null;
   return (
     <div className="fixed inset-0 z-[60] flex items-end justify-center bg-ink/40 backdrop-blur-[2px] sm:items-center sm:p-4" onMouseDown={(e) => { if (e.target === e.currentTarget) onClose(); }}>
