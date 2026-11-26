@@ -291,6 +291,8 @@ export async function handle(req: Req, res: Res) {
     if (path === 'changes') {
       const a = requireActor(actor);
       const since = Number(url.searchParams.get('since') ?? 0);
+      const resetRev = (await getSetting<number>('resetRev')) ?? 0;
+      if (since < resetRev) return send(res, 200, { reset: true, serverNow: Date.now() });
       const rows = await rowsSince(since, 1500);
       if (rows.length >= 1500) return send(res, 200, { reset: true, serverNow: Date.now() });
       if (!rows.length) return send(res, 200, { rev: since, entities: [], serverNow: Date.now() });
@@ -365,7 +367,8 @@ export async function handle(req: Req, res: Res) {
       requireActor(actor, 'admin');
       const b = await readBody(req);
       if (!DEMO_MODE() && b.confirm !== 'RESET') throw new HttpError(400, 'Type RESET to confirm.');
-      await resetAll(b.demo !== false);
+      const mode = b.mode === 'empty' || b.mode === 'event' || b.mode === 'demo' ? b.mode : b.demo === false ? 'event' : 'demo';
+      await resetAll(mode);
       return send(res, 200, { ok: true });
     }
 

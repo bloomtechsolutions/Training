@@ -45,6 +45,7 @@ export default function EventsAdmin() {
         return;
       }
       const id = uid('ev');
+      if (!d.events.length || !d.currentEventId) { d.currentEventId = id; d.live = { ...d.live, eventId: id }; }
       d.events.push({ id, name: draft.name, regionId: draft.regionId || null, venue: draft.venue, days: [{ date: draft.start, theme: draft.theme1 }, { date: addDays(draft.start, 1), theme: draft.theme2 }], status: 'draft', revision: 1, publishedRevision: 0, publishedAt: null, createdAt: Date.now() });
       audit(d, ADMIN_ACTOR, 'event.create', `Created “${draft.name}”`);
     });

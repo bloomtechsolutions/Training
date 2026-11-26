@@ -10,7 +10,8 @@ import { Login, VenueLogin, SetupScreen, Splash } from './auth/Login';
 import AccountsAdmin from './admin/Accounts';
 import { NavContext } from './lib/nav';
 import type { Role } from './lib/types';
-import { Button, cx, Modal, Skeleton, ErrorState } from './components/ui';
+import { Button, cx, Modal, Skeleton, ErrorState, EmptyState } from './components/ui';
+import { useNav } from './lib/nav';
 import { Confetti } from './components/shared';
 import { formatDateTime } from './lib/time';
 
@@ -213,7 +214,7 @@ function AboutModal({ open, onClose }: { open: boolean; onClose: () => void }) {
 }
 
 function Shell() {
-  const { role, setRole, toasts, dismissToast, confetti, online, reset, toast, actor, demoMode, applyRemote, allowedRoles } = useStore();
+  const { db, role, setRole, toasts, dismissToast, confetti, online, reset, toast, actor, demoMode, applyRemote, allowedRoles } = useStore();
   const initial = useMemo(() => {
     const h = window.location.hash.replace('#', '');
     const [r, v] = h.split('-');
@@ -223,6 +224,7 @@ function Shell() {
   const [nav, setNav] = useState<{ view: string; param?: string }[]>([{ view: initial?.view ?? DEFAULT_VIEW[role] }]);
   const [loading, setLoading] = useState(true);
   const [confirmReset, setConfirmReset] = useState(false);
+  const [resetText, setResetText] = useState('');
   const [about, setAbout] = useState(false);
   const [drawer, setDrawer] = useState(false);
 
@@ -279,7 +281,9 @@ function Shell() {
 
   const items = NAV[role];
   const item = items.find((i) => i.id === cur.view);
-  const View = item?.el ?? HIDDEN[role]?.[cur.view] ?? items[0].el;
+  const noEvent = db.events.length === 0;
+  const NO_EVENT_OK = ['events', 'regions', 'trainers', 'accounts', 'access'];
+  const View = noEvent && !(role === 'admin' && NO_EVENT_OK.includes(cur.view)) ? NoEventView : item?.el ?? HIDDEN[role]?.[cur.view] ?? items[0].el;
   const groups = Array.from(new Set(items.map((i) => i.group ?? '')));
   const mobileItems = items.filter((i) => i.mobile);
 
@@ -295,8 +299,26 @@ function Shell() {
             </div>
           ))}
         </div>
-        <Modal open={confirmReset} onClose={() => setConfirmReset(false)} title="Reset all data?" footer={<><Button variant="secondary" onClick={() => setConfirmReset(false)}>Cancel</Button><Button variant="secondary" onClick={() => { setConfirmReset(false); reset(false).then(() => toast('Reset to the event and content only')).catch((e) => toast(e.message, 'err')); setNav([{ view: DEFAULT_VIEW[role] }]); }}>Reset without demo people</Button><Button onClick={() => { setConfirmReset(false); reset(true).then(() => toast('Demo data restored')).catch((e) => toast(e.message, 'err')); setNav([{ view: DEFAULT_VIEW[role] }]); }} icon={<RotateCcw size={16} />}>Reset with demo data</Button></>}>
-          <p className="text-sm text-ink-2">This deletes everything in the database for everyone: participants, access codes, check-ins, answers, feedback, notes and changes. It then restores the 27–28 November event. This cannot be undone.</p>
+        <Modal open={confirmReset} onClose={() => setConfirmReset(false)} title="Reset all data?" wide footer={<Button variant="secondary" onClick={() => { setConfirmReset(false); setResetText(''); }}>Cancel</Button>}>
+          <div className="space-y-4 text-sm text-ink-2">
+            <p>This permanently deletes data for <b>everyone</b>: participants, access codes, check-ins, answers, points, feedback, notes, photos and the audit log. Your <b>admin</b> sign-in is kept. This cannot be undone.</p>
+            <label htmlFor="reset-confirm" className="block text-xs font-semibold text-ink-2">Type RESET to enable the buttons</label>
+            <input id="reset-confirm" className="w-full rounded-xl bg-canvas px-3.5 py-2.5 font-mono text-sm ring-1 ring-inset ring-ink/10" value={resetText} onChange={(e) => setResetText(e.target.value)} autoComplete="off" />
+            <div className="grid gap-2 sm:grid-cols-3">
+              {([
+                ['empty', 'Completely empty', 'Only your admin sign-in, the six regions and the five team names. Build events, agenda and trainers from scratch.'],
+                ['event', 'Event without people', 'Keeps the 27–28 Nov event, agenda, trainers and content. No participants or results.'],
+                ['demo', 'Event with demo data', 'Restores the event plus fictional participants and results for demonstrations.'],
+              ] as const).map(([mode, label, desc]) => (
+                <button key={mode} disabled={resetText !== 'RESET'} onClick={() => {
+                  setConfirmReset(false); setResetText(''); setNav([{ view: mode === 'empty' ? 'events' : DEFAULT_VIEW[role] }]);
+                  reset(mode).then(() => toast(mode === 'empty' ? 'Database emptied. Create your first event.' : 'Data reset')).catch((e) => toast(e.message, 'err'));
+                }} className="rounded-2xl p-4 text-left ring-1 ring-inset ring-ink/10 transition enabled:hover:ring-bml disabled:opacity-40">
+                  <div className="font-bold text-ink">{label}</div><div className="mt-1 text-xs text-ink-3">{desc}</div>
+                </button>
+              ))}
+            </div>
+          </div>
         </Modal>
         <AboutModal open={about} onClose={() => setAbout(false)} />
       </>
@@ -349,6 +371,17 @@ function Shell() {
       )}
       {Overlays()}
     </NavContext.Provider>
+  );
+}
+
+function NoEventView() {
+  const { role } = useStore();
+  const { go } = useNav();
+  return (
+    <div className="mx-auto max-w-lg py-10">
+      <EmptyState icon={<CalendarPlus />} title="No event set up yet" body={role === 'admin' ? 'Start by creating an event. Then add trainers, build the agenda, import participants and publish.' : 'The organisers haven’t published an event yet. Check back soon.'}
+        action={role === 'admin' ? <div className="flex flex-wrap justify-center gap-2"><Button onClick={() => go('events')} icon={<CalendarPlus size={16} />}>Create an event</Button><Button variant="secondary" onClick={() => go('trainers')}>Add trainers</Button></div> : undefined} />
+    </div>
   );
 }
 

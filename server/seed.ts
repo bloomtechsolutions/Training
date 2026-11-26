@@ -29,6 +29,24 @@ export function seedDb(demo: boolean): DB {
   return db;
 }
 
+/** A completely empty database: only fixed configuration (regions, team names, leadership roles) and system settings. */
+export function emptyDb(): DB {
+  const base = buildSeed();
+  return {
+    ...base,
+    demoClock: null,
+    demoClockSetAt: Date.now(),
+    currentEventId: '',
+    serviceCentres: [], users: [], trainers: [], events: [], sessions: [], activities: [], responses: [], scores: [],
+    feedback: [], notes: {}, bookmarks: {}, announcements: [], readAnnouncements: {}, qa: [], ideas: [], challenges: [],
+    words: [], attendance: [], audit: [], commitments: [], resources: [], photos: [], decks: {}, blocks: [], rubric: [],
+    selfAssess: [], scenarioProgress: [], certificates: [], prefs: {}, vendorScores: {}, publishedAgenda: {},
+    leaders: base.leaders.map((l) => ({ ...l, name: '' })),
+    roleplay: { assignments: [], prepDeadline: null },
+    live: { ...base.live, eventId: '', sessionId: null, venueMode: 'welcome', activityId: null, phase: 'idle', deadline: null, pointer: null, controller: null },
+  };
+}
+
 const slug = (name: string) => name.toLowerCase().replace(/[^a-z\s]/g, '').trim().split(/\s+/).filter(Boolean).slice(-2).join('.');
 
 async function bulkInsert(tx: Prisma.TransactionClient, rows: { c: string; k: string; e: string | null; o: string | null; d: string }[]) {
@@ -44,13 +62,16 @@ async function bulkInsert(tx: Prisma.TransactionClient, rows: { c: string; k: st
   }
 }
 
-export async function writeSeed(tx: Prisma.TransactionClient, demo: boolean) {
-  const db = seedDb(demo);
+export type ResetMode = 'demo' | 'event' | 'empty';
+
+export async function writeSeed(tx: Prisma.TransactionClient, demo: boolean | ResetMode) {
+  const mode: ResetMode = demo === true ? 'demo' : demo === false ? 'event' : demo;
+  const db = mode === 'empty' ? emptyDb() : seedDb(mode === 'demo');
   const rows: { c: string; k: string; e: string | null; o: string | null; d: string }[] = [];
   toEntities(db).forEach((m, c) => m.forEach((v, k) => rows.push({ c, k, e: eventOf(v), o: ownerOf(c, k, v), d: JSON.stringify(v) })));
   await bulkInsert(tx, rows);
 
-  const accounts: Prisma.AccountCreateManyInput[] = [
+  const accounts: Prisma.AccountCreateManyInput[] = mode === 'empty' ? [{ id: 'acc-admin', login: 'admin', name: 'Event Organiser', role: 'admin' }] : [
     { id: 'acc-admin', login: 'admin', name: 'Event Organiser', role: 'admin' },
     { id: 'acc-leadership', login: 'leadership', name: 'Leadership viewer', role: 'leadership' },
     ...db.trainers.filter((t) => t.kind === 'staff').map((t) => ({ id: `acc-${t.id}`, login: slug(t.name), name: t.name, role: 'trainer', trainerId: t.id })),
@@ -71,13 +92,16 @@ export async function ensureSeeded() {
   await seeding;
 }
 
-export async function resetAll(demo: boolean) {
+export async function resetAll(demo: boolean | ResetMode) {
   await prisma().$transaction(async (tx) => {
     await tx.$queryRaw`SELECT pg_advisory_xact_lock(42001)::text AS l`;
-    // Tombstone everything (so open clients drop it), then rewrite the seed.
-    await tx.$executeRaw`UPDATE "entity" SET "deleted" = true, "rev" = nextval('entity_rev_seq')`;
+    // Remove every row, then rewrite the starting data. Open devices see resetRev and reload.
+    await tx.$executeRaw`DELETE FROM "entity"`;
     await tx.account.deleteMany({});
+    await tx.$executeRaw`DELETE FROM "setting" WHERE "key" IN ('venue:code')`;
     await writeSeed(tx, demo);
+    const r = await tx.$queryRaw<{ m: bigint | null }[]>`SELECT max("rev") AS m FROM "entity"`;
+    await setSetting('resetRev', Number(r[0]?.m ?? 0), tx);
     await setSetting('seeded', true, tx);
   }, { timeout: 60_000, maxWait: 20_000 });
 }

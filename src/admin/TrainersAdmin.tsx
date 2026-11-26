@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { Pencil, CheckCircle2, CircleDashed, Crown } from 'lucide-react';
-import { useStore, audit, eventSessions } from '../lib/store';
+import { useStore, audit, eventSessions, uid } from '../lib/store';
+import { Plus } from 'lucide-react';
 import { Avatar, Badge, Button, Card, PageHeader, Modal, Field, inputCls, SectionTitle } from '../components/ui';
 import { ADMIN_ACTOR } from './common';
 import type { Trainer } from '../lib/types';
@@ -8,10 +9,14 @@ import type { Trainer } from '../lib/types';
 export default function TrainersAdmin() {
   const { db, update, toast } = useStore();
   const [edit, setEdit] = useState<(Trainer & { exp: string }) | null>(null);
+  const [adding, setAdding] = useState<{ name: string; kind: Trainer['kind'] } | null>(null);
+  const COLORS = ['#B50928', '#7C5CFA', '#0E9384', '#E8502F', '#2563EB', '#D98A0B', '#9333EA', '#0F766E'];
   const sessions = eventSessions(db, db.currentEventId);
   return (
     <div>
-      <PageHeader eyebrow="Prepare" title="Trainers" subtitle="Profiles, session assignments and content readiness. Add official designations, departments and biographies when supplied; nothing is invented." />
+      <PageHeader eyebrow="Prepare" title="Trainers" subtitle="Profiles, session assignments and content readiness. Add official designations, departments and biographies when supplied; nothing is invented."
+        actions={<Button icon={<Plus size={16} />} onClick={() => setAdding({ name: '', kind: 'staff' })}>Add trainer</Button>} />
+      {db.trainers.length === 0 && <Card className="mb-4 p-5 text-sm text-ink-2">No trainers yet. Add each trainer, then give them a sign-in in <b>Sign-in &amp; codes</b> (role: Trainer) and assign them to sessions in the <b>Agenda builder</b>.</Card>}
       <div className="grid gap-3 lg:grid-cols-2">
         {db.trainers.filter((t) => t.kind === 'staff').map((t) => {
           const mine = sessions.filter((s) => s.trainerIds.includes(t.id));
@@ -51,6 +56,17 @@ export default function TrainersAdmin() {
           </Card>
         ))}
       </div>
+      <Modal open={!!adding} onClose={() => setAdding(null)} title="Add trainer or host" footer={<><Button variant="secondary" onClick={() => setAdding(null)}>Cancel</Button><Button disabled={!adding || adding.name.trim().length < 2} disabledReason="Enter a name" onClick={() => {
+        if (!adding) return;
+        const name = adding.name.trim();
+        update((d) => { d.trainers.push({ id: uid('t'), name, kind: adding.kind, designation: '', department: '', expertise: [], bio: '', color: COLORS[d.trainers.length % COLORS.length], questions: [] }); audit(d, ADMIN_ACTOR, 'trainer.create', `Added ${name}`); });
+        setAdding(null); toast(`${name} added`);
+      }}>Add</Button></>}>
+        {adding && <div className="space-y-3">
+          <Field label="Name" htmlFor="nt-name"><input id="nt-name" className={inputCls} value={adding.name} onChange={(e) => setAdding({ ...adding, name: e.target.value })} /></Field>
+          <Field label="Type" htmlFor="nt-kind"><select id="nt-kind" className={inputCls} value={adding.kind} onChange={(e) => setAdding({ ...adding, kind: e.target.value as Trainer['kind'] })}><option value="staff">BML trainer</option><option value="vendor">External vendor</option><option value="group">Department / group host (e.g. PD / Retail)</option><option value="participants">Participant-led</option></select></Field>
+        </div>}
+      </Modal>
       <Modal open={!!edit} onClose={() => setEdit(null)} title="Edit trainer profile" footer={<><Button variant="secondary" onClick={() => setEdit(null)}>Cancel</Button><Button onClick={() => { if (!edit) return; update((d) => { const t = d.trainers.find((x) => x.id === edit.id)!; t.designation = edit.designation.trim(); t.department = edit.department.trim(); t.bio = edit.bio.trim(); t.expertise = edit.exp.split(',').map((x) => x.trim()).filter(Boolean); audit(d, ADMIN_ACTOR, 'trainer.edit', `Updated profile of ${t.name}`); }); setEdit(null); toast('Profile saved'); }}>Save</Button></>}>
         {edit && (
           <div className="space-y-3">

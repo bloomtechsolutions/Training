@@ -50,7 +50,7 @@ interface Ctx {
   update: (fn: (d: DB) => void) => Promise<{ entities: Entity[] } | null>;
   applyRemote: (entities: Entity[]) => void;
   refresh: () => Promise<void>;
-  reset: (demo?: boolean) => Promise<void>;
+  reset: (mode: 'demo' | 'event' | 'empty') => Promise<void>;
   signIn: (actor: Actor) => Promise<void>;
   signOut: () => Promise<void>;
   role: Role;
@@ -224,8 +224,8 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
     setStatus('signedOut');
   }, []);
 
-  const reset = useCallback(async (demo = true) => {
-    await api('admin/reset', { demo, confirm: 'RESET' });
+  const reset = useCallback(async (mode: 'demo' | 'event' | 'empty') => {
+    await api('admin/reset', { mode, confirm: 'RESET' });
     await bootstrap();
   }, [bootstrap]);
 
@@ -274,7 +274,7 @@ export function useNow() {
 
 export function useEvent(): TrainingEvent {
   const { db } = useStore();
-  return db.events.find((e) => e.id === db.currentEventId) ?? db.events[0];
+  return db.events.find((e) => e.id === db.currentEventId) ?? db.events.find((e) => e.status === 'published') ?? db.events[0];
 }
 
 export function eventSessions(db: DB, eventId: string) {

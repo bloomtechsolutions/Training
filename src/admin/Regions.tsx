@@ -7,10 +7,16 @@ import { ADMIN_ACTOR } from './common';
 export default function RegionsAdmin() {
   const { db, update, toast } = useStore();
   const [names, setNames] = useState<Record<string, string>>({});
+  const [newRegion, setNewRegion] = useState('');
   return (
     <div>
-      <PageHeader eyebrow="Prepare" title="Regions & service centres" subtitle="Maintain the region → service centre hierarchy used for events, participants and reporting." />
-      <p className="mb-4 flex items-center gap-2 text-xs text-ink-3"><DemoTag /> Service centre names are placeholders. Replace them with the official list.</p>
+      <PageHeader eyebrow="Prepare" title="Regions & service centres" subtitle="Maintain the region → service centre hierarchy used for events, participants and reporting."
+        actions={<form className="flex gap-2" onSubmit={(e) => { e.preventDefault(); const n = newRegion.trim(); if (!n) return; if (db.regions.some((r) => r.name.toLowerCase() === n.toLowerCase())) { toast('That region already exists', 'warn'); return; } update((d) => { d.regions.push({ id: n.toLowerCase().replace(/[^a-z0-9]+/g, '-') + '-' + Date.now().toString(36).slice(-3), name: n }); audit(d, ADMIN_ACTOR, 'region.create', `Added region ${n}`); }); setNewRegion(''); toast('Region added'); }}>
+          <label htmlFor="new-region" className="sr-only">New region</label>
+          <input id="new-region" className={inputCls} placeholder="New region name" value={newRegion} onChange={(e) => setNewRegion(e.target.value)} />
+          <Button type="submit" icon={<Plus size={16} />}>Add</Button>
+        </form>} />
+      {db.serviceCentres.some((s) => /Service Centre \d$/.test(s.name)) && <p className="mb-4 flex items-center gap-2 text-xs text-ink-3"><DemoTag /> Service centre names are placeholders. Replace them with the official list.</p>}
       <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
         {db.regions.map((r) => {
           const scs = db.serviceCentres.filter((s) => s.regionId === r.id);
