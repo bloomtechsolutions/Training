@@ -1,6 +1,6 @@
 import React, { useEffect, useMemo, useState } from 'react';
 import { KeyRound, Plus, Copy, Search, Ban, CheckCircle2, RefreshCw } from 'lucide-react';
-import { useStore, api } from '../lib/store';
+import { useStore, api, uid, audit } from '../lib/store';
 import { Badge, Button, Card, PageHeader, Modal, Field, inputCls, cx, EmptyState, Spinner, copyText, toCsv } from '../components/ui';
 import { ExportButtons } from '../components/shared';
 import { formatDateTime } from '../lib/time';
@@ -8,7 +8,7 @@ import { formatDateTime } from '../lib/time';
 interface Account { id: string; login: string; name: string; role: string; trainerId: string | null; hasCode: boolean; disabled: boolean; lastLoginAt: string | null }
 
 export default function AccountsAdmin() {
-  const { db, toast } = useStore();
+  const { db, toast, update } = useStore();
   const [list, setList] = useState<Account[] | null>(null);
   const [error, setError] = useState('');
   const [q, setQ] = useState('');
@@ -17,6 +17,12 @@ export default function AccountsAdmin() {
   const [creating, setCreating] = useState(false);
   const [f, setF] = useState({ login: '', name: '', role: 'trainer', trainerId: '' });
   const [busy, setBusy] = useState(false);
+  const NEW = '__new';
+  const staffTrainers = db.trainers.filter((t) => t.kind === 'staff');
+  const missing = f.role === 'trainer' && !f.trainerId ? 'Choose a trainer profile, or create a new one'
+    : f.role === 'trainer' && f.trainerId === NEW && f.name.trim().length < 2 ? 'Enter the display name for the new trainer'
+    : !/^[a-z0-9._-]{3,40}$/.test(f.login) ? 'Sign-in ID: at least 3 letters, numbers, dots or dashes'
+    : '';
 
   const load = () => api<{ accounts: Account[] }>('admin/accounts').then((r) => { setList(r.accounts); setError(''); }).catch((e) => setError(e.message));
   useEffect(() => { load(); }, []);
@@ -41,7 +47,7 @@ export default function AccountsAdmin() {
       <PageHeader eyebrow="Govern" title="Sign-in & access codes" subtitle="Everyone signs in with their staff ID (or sign-in name) and a personal access code. Issuing a new code replaces the old one. Codes are shown once; they are stored only as secure hashes."
         actions={<>
           <Button variant="secondary" icon={<KeyRound size={16} />} disabled={busy || !shown.some((a) => a.role === 'participant' && !a.hasCode)} disabledReason="Every participant shown already has a code" onClick={() => issue(shown.filter((a) => a.role === 'participant' && !a.hasCode).map((a) => a.id))}>Issue codes to participants without one</Button>
-          <Button icon={<Plus size={16} />} onClick={() => setCreating(true)}>Add staff account</Button>
+          <Button icon={<Plus size={16} />} onClick={() => { setF({ login: '', name: '', role: 'trainer', trainerId: staffTrainers.length ? '' : '__new' }); setCreating(true); }}>Add staff account</Button>
         </>} />
       <div className="mb-4 flex flex-col gap-2 sm:flex-row">
         <div className="relative flex-1"><Search className="absolute left-3.5 top-1/2 -translate-y-1/2 text-ink-4" size={17} /><label htmlFor="acq" className="sr-only">Search</label><input id="acq" className={cx(inputCls, 'pl-10')} placeholder="Search sign-in ID or name" value={q} onChange={(e) => setQ(e.target.value)} /></div>
@@ -80,17 +86,25 @@ export default function AccountsAdmin() {
         </div>
       </Modal>
 
-      <Modal open={creating} onClose={() => setCreating(false)} title="Add a staff account" footer={<><Button variant="secondary" onClick={() => setCreating(false)}>Cancel</Button><Button disabled={busy || f.login.length < 3 || (f.role === 'trainer' && !f.trainerId)} disabledReason="Fill in the sign-in ID (and trainer profile for trainers)" onClick={async () => {
+      <Modal open={creating} onClose={() => setCreating(false)} title="Add a staff account" footer={<><span className="mr-auto text-xs font-semibold text-bml">{missing}</span><Button variant="secondary" onClick={() => setCreating(false)}>Cancel</Button><Button disabled={busy || !!missing} disabledReason={missing} onClick={async () => {
         setBusy(true);
         try {
-          const name = f.name || (f.role === 'trainer' ? db.trainers.find((t) => t.id === f.trainerId)?.name ?? f.login : f.login);
-          const r = await api<{ code: string; login: string }>('admin/accounts', { action: 'create', ...f, name });
+          let trainerId = f.trainerId;
+          if (f.role === 'trainer' && trainerId === NEW) {
+            // Create the trainer profile first, then link the sign-in to it.
+            trainerId = uid('t');
+            const COLORS = ['#B50928', '#7C5CFA', '#0E9384', '#E8502F', '#2563EB', '#D98A0B', '#9333EA', '#0F766E'];
+            const res = await update((d) => { d.trainers.push({ id: trainerId, name: f.name.trim(), kind: 'staff', designation: '', department: '', expertise: [], bio: '', color: COLORS[d.trainers.length % COLORS.length], questions: [] }); audit(d, 'admin', 'trainer.create', `Added ${f.name.trim()}`); });
+            if (!res) return;
+          }
+          const name = f.name || (f.role === 'trainer' ? db.trainers.find((t) => t.id === trainerId)?.name ?? f.login : f.login);
+          const r = await api<{ code: string; login: string }>('admin/accounts', { action: 'create', ...f, trainerId, name });
           setCreating(false); setIssued([{ ...r, name }]); setF({ login: '', name: '', role: 'trainer', trainerId: '' }); load();
         } catch (e) { toast((e as Error).message, 'err'); } finally { setBusy(false); }
       }}>Create and issue code</Button></>}>
         <div className="space-y-3">
           <Field label="Role" htmlFor="na-role"><select id="na-role" className={inputCls} value={f.role} onChange={(e) => setF({ ...f, role: e.target.value })}><option value="trainer">Trainer</option><option value="admin">Event organiser (admin)</option><option value="leadership">Leadership (read-only reports)</option></select></Field>
-          {f.role === 'trainer' && <Field label="Trainer profile" htmlFor="na-tr"><select id="na-tr" className={inputCls} value={f.trainerId} onChange={(e) => setF({ ...f, trainerId: e.target.value })}><option value="">Choose…</option>{db.trainers.filter((t) => t.kind === 'staff').map((t) => <option key={t.id} value={t.id}>{t.name}</option>)}</select></Field>}
+          {f.role === 'trainer' && <Field label="Trainer profile" htmlFor="na-tr" hint={f.trainerId === NEW ? 'A new trainer profile will be created with the display name below. Assign sessions to it in the Agenda builder.' : undefined}><select id="na-tr" className={inputCls} value={f.trainerId} onChange={(e) => setF({ ...f, trainerId: e.target.value })}><option value="">Choose…</option><option value={NEW}>＋ Create a new trainer profile</option>{staffTrainers.map((t) => <option key={t.id} value={t.id}>{t.name}</option>)}</select></Field>}
           <Field label="Sign-in ID" htmlFor="na-login" hint="Their staff ID is a good choice. Letters, numbers, dots and dashes."><input id="na-login" className={inputCls} value={f.login} onChange={(e) => setF({ ...f, login: e.target.value.toLowerCase() })} /></Field>
           <Field label="Display name" htmlFor="na-name"><input id="na-name" className={inputCls} value={f.name} onChange={(e) => setF({ ...f, name: e.target.value })} /></Field>
         </div>
