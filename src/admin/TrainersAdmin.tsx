@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { Pencil, CheckCircle2, CircleDashed, Crown } from 'lucide-react';
+import { Pencil, CheckCircle2, CircleDashed, Crown, Trash2 } from 'lucide-react';
 import { useStore, audit, eventSessions, uid } from '../lib/store';
 import { Plus } from 'lucide-react';
 import { Avatar, Badge, Button, Card, PageHeader, Modal, Field, inputCls, SectionTitle } from '../components/ui';
@@ -10,6 +10,7 @@ export default function TrainersAdmin() {
   const { db, update, toast } = useStore();
   const [edit, setEdit] = useState<(Trainer & { exp: string }) | null>(null);
   const [adding, setAdding] = useState<{ name: string; kind: Trainer['kind'] } | null>(null);
+  const [leader, setLeader] = useState<{ id: string; role: string; name: string } | null>(null);
   const COLORS = ['#B50928', '#7C5CFA', '#0E9384', '#E8502F', '#2563EB', '#D98A0B', '#9333EA', '#0F766E'];
   const sessions = eventSessions(db, db.currentEventId);
   return (
@@ -44,18 +45,30 @@ export default function TrainersAdmin() {
           );
         })}
       </div>
-      <SectionTitle className="mt-8" title="Leadership" />
-      <div className="grid gap-3 sm:grid-cols-2">
-        {db.leaders.map((l) => (
-          <Card key={l.id} className="flex items-center gap-3 p-4">
-            <Crown className="text-amber-500" />
-            <div className="min-w-0 flex-1"><div className="text-xs text-ink-3">{l.role}</div>
-              <label htmlFor={`ld-${l.id}`} className="sr-only">Name</label>
-              <input id={`ld-${l.id}`} className={inputCls} placeholder="Name to be confirmed" value={l.name} onChange={(e) => update((d) => { d.leaders.find((x) => x.id === l.id)!.name = e.target.value; })} />
-            </div>
-          </Card>
-        ))}
-      </div>
+      <SectionTitle className="mt-8" title="Leadership" eyebrow="Directors, heads and guests joining the programme" action={<Button size="sm" variant="secondary" icon={<Plus size={15} />} onClick={() => setLeader({ id: '', role: '', name: '' })}>Add leader</Button>} />
+      {db.leaders.length === 0 ? <Card className="p-5 text-sm text-ink-3">No leaders added yet. Participants see leaders on the Trainers page and can send them questions in Ask Leadership.</Card> : (
+        <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-3">
+          {db.leaders.map((l) => (
+            <Card key={l.id} className="flex items-center gap-3 p-4">
+              <span className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full bg-amber-50 text-amber-500"><Crown size={20} /></span>
+              <div className="min-w-0 flex-1"><div className="truncate font-display font-bold text-ink">{l.name || <i className="font-sans font-normal text-ink-3">Name to be confirmed</i>}</div><div className="truncate text-xs text-ink-3">{l.role || 'Role to be confirmed'}</div></div>
+              <Button size="sm" variant="ghost" aria-label={`Edit ${l.name || l.role}`} icon={<Pencil size={15} />} onClick={() => setLeader({ ...l })} />
+              <Button size="sm" variant="ghost" aria-label={`Remove ${l.name || l.role}`} icon={<Trash2 size={15} />} onClick={() => { update((d) => { d.leaders = d.leaders.filter((x) => x.id !== l.id); audit(d, ADMIN_ACTOR, 'leader.delete', `Removed ${l.name || l.role}`); }); toast('Leader removed'); }} />
+            </Card>
+          ))}
+        </div>
+      )}
+      <Modal open={!!leader} onClose={() => setLeader(null)} title={leader?.id ? 'Edit leader' : 'Add leader'} footer={<><Button variant="secondary" onClick={() => setLeader(null)}>Cancel</Button><Button disabled={!leader || leader.role.trim().length < 2} disabledReason="Enter the role or title" onClick={() => {
+        if (!leader) return;
+        const v = { id: leader.id || uid('l'), role: leader.role.trim(), name: leader.name.trim() };
+        update((d) => { const i = d.leaders.findIndex((x) => x.id === v.id); if (i >= 0) d.leaders[i] = v; else d.leaders.push(v); audit(d, ADMIN_ACTOR, i >= 0 ? 'leader.edit' : 'leader.create', `${v.name || 'TBC'} · ${v.role}`); });
+        setLeader(null); toast(leader.id ? 'Leader updated' : 'Leader added');
+      }}>Save</Button></>}>
+        {leader && <div className="space-y-3">
+          <Field label="Role or title" htmlFor="ld-role" hint="For example Director of Retail & SME Banking, Head of Customer Experience."><input id="ld-role" className={inputCls} value={leader.role} onChange={(e) => setLeader({ ...leader, role: e.target.value })} /></Field>
+          <Field label="Name" htmlFor="ld-name" hint="Leave blank until confirmed."><input id="ld-name" className={inputCls} value={leader.name} onChange={(e) => setLeader({ ...leader, name: e.target.value })} /></Field>
+        </div>}
+      </Modal>
       <Modal open={!!adding} onClose={() => setAdding(null)} title="Add trainer or host" footer={<><Button variant="secondary" onClick={() => setAdding(null)}>Cancel</Button><Button disabled={!adding || adding.name.trim().length < 2} disabledReason="Enter a name" onClick={() => {
         if (!adding) return;
         const name = adding.name.trim();

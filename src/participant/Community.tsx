@@ -13,10 +13,11 @@ export function AskLeadership() {
   const [sort, setSort] = useState<'top' | 'new'>('top');
   const qs = db.qa.filter((q) => q.eventId === ev.id && q.channel === 'leadership' && (q.status === 'approved' || q.status === 'answered' || q.userId === me.id))
     .sort((a, b) => (sort === 'top' ? b.votes.length - a.votes.length : b.ts - a.ts));
-  const leader = db.leaders[0];
+  const leaderNames = db.leaders.map((l) => l.name || l.role).filter(Boolean);
+  const audience = leaderNames.length === 0 ? 'the leadership team' : leaderNames.length === 1 ? leaderNames[0] : `${leaderNames.slice(0, -1).join(', ')} and ${leaderNames[leaderNames.length - 1]}`;
   return (
     <div>
-      <PageHeader eyebrow="Ask Leadership" title="Questions for leadership" subtitle={`Submit questions for ${leader.name || leader.role}. Upvote the ones you want answered. Unanswered questions get follow-up answers after the event.`} />
+      <PageHeader eyebrow="Ask Leadership" title="Questions for leadership" subtitle={`Submit questions for ${audience}. Upvote the ones you want answered. Unanswered questions get follow-up answers after the event.`} />
       <Card className="mb-5 p-5">
         <label htmlFor="lead-q" className="mb-1 block text-sm font-semibold">Your question</label>
         <textarea id="lead-q" className={inputCls} rows={3} maxLength={300} value={text} onChange={(e) => setText(e.target.value)} placeholder="Ask about strategy, development, digital-first, customers…" />

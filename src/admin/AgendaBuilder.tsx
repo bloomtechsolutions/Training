@@ -4,7 +4,9 @@ import { useStore, uid, audit, eventSessions } from '../lib/store';
 import { Badge, Button, Card, PageHeader, Modal, Field, inputCls, Tabs, Toggle, cx, EmptyState } from '../components/ui';
 import { durationLabel, toMin, fromMin, formatDay } from '../lib/time';
 import { ADMIN_ACTOR } from './common';
-import type { Session, SessionKind } from '../lib/types';
+import type { Session, SessionKind, SessionType } from '../lib/types';
+import { sessionTypes, typeOf, showTypeBadge } from '../lib/sessionTypes';
+import { Settings2 } from 'lucide-react';
 
 export function agendaIssues(list: Session[]) {
   const issues: Record<string, string[]> = {};
@@ -29,7 +31,7 @@ function diff(published: Session[], draft: Session[]) {
     const p = published.find((x) => x.id === s.id);
     if (!p) changes.push(`Added: ${s.title} (Day ${s.day}, ${s.start})`);
     else if (p.start !== s.start || p.end !== s.end || p.day !== s.day) changes.push(`${s.title}: ${p.start}–${p.end} → ${s.start}–${s.end}${p.day !== s.day ? ` (Day ${s.day})` : ''}`);
-    else if (p.title !== s.title || p.trainerLabel !== s.trainerLabel) changes.push(`Updated: ${s.title}`);
+    else if (p.title !== s.title || p.trainerLabel !== s.trainerLabel || p.description !== s.description || p.code !== s.code || p.kind !== s.kind || (p.typeId ?? '') !== (s.typeId ?? '') || p.trainerIds.join() !== s.trainerIds.join()) changes.push(`Updated: ${s.title}`);
   });
   published.forEach((p) => { if (!draft.some((s) => s.id === p.id)) changes.push(`Removed: ${p.title}`); });
   return changes;
@@ -46,6 +48,8 @@ export default function AgendaBuilder() {
   const [msg, setMsg] = useState('');
   const draft = eventSessions(db, eventId);
   const published = db.publishedAgenda[eventId] ?? [];
+  const types = sessionTypes(db);
+  const [managing, setManaging] = useState(false);
   const issues = useMemo(() => agendaIssues(draft), [draft]);
   const changes = useMemo(() => diff(published, draft), [published, draft]);
   const list = draft.filter((s) => String(s.day) === day);
@@ -84,6 +88,7 @@ export default function AgendaBuilder() {
         actions={<>
           <label htmlFor="ab-ev" className="sr-only">Event</label>
           <select id="ab-ev" value={eventId} onChange={(e) => setEventId(e.target.value)} className="h-10 max-w-[240px] rounded-xl border-0 bg-white px-3 text-sm font-semibold shadow-sm ring-1 ring-inset ring-ink/10">{db.events.filter((e) => e.status !== 'archived').map((e) => <option key={e.id} value={e.id}>{e.name}</option>)}</select>
+          <Button variant="ghost" icon={<Settings2 size={16} />} onClick={() => setManaging(true)}>Item types</Button>
           <Button variant="secondary" icon={<Plus size={16} />} onClick={() => setEdit({ id: uid('s'), eventId, day: Number(day), start: '09:00', end: '09:30', code: null, title: '', description: '', kind: 'session', trainerIds: [], trainerLabel: '', objectives: [], engage: null, order: draft.length })}>Add item</Button>
         </>} />
 
@@ -105,7 +110,7 @@ export default function AgendaBuilder() {
                 <tr key={s.id} className={cx('border-b border-ink/5 last:border-0', issues[s.id] && 'bg-bml-50/50', s.kind === 'break' && 'text-ink-3')}>
                   <td className="whitespace-nowrap px-4 py-3 font-mono font-semibold tabular-nums">{s.start}–{s.end}</td>
                   <td className="font-mono text-xs font-bold text-bml">{s.code ?? (s.kind === 'vendor' ? 'EA' : '—')}</td>
-                  <td className="py-3 pr-3"><div className="font-semibold text-ink">{s.title || <i className="text-ink-3">Untitled</i>}</div>{s.kind !== 'session' && <Badge tone={s.kind === 'vendor' ? 'amber' : 'ink'} className="mt-1">{s.kind === 'vendor' ? 'Vendor' : 'Break'}</Badge>}{issues[s.id]?.map((m) => <div key={m} className="mt-1 flex items-center gap-1 text-xs font-semibold text-bml"><AlertTriangle size={12} />{m}</div>)}</td>
+                  <td className="py-3 pr-3"><div className="font-semibold text-ink">{s.title || <i className="text-ink-3">Untitled</i>}</div>{showTypeBadge(db, s) && <TypeBadge t={typeOf(db, s)} className="mt-1" />}{issues[s.id]?.map((m) => <div key={m} className="mt-1 flex items-center gap-1 text-xs font-semibold text-bml"><AlertTriangle size={12} />{m}</div>)}</td>
                   <td className="max-w-[220px] truncate pr-3 text-ink-2">{s.trainerLabel}</td>
                   <td className="whitespace-nowrap tabular-nums text-ink-3">{durationLabel(s.start, s.end)}</td>
                   <td className="whitespace-nowrap px-4 text-right">
@@ -126,13 +131,16 @@ export default function AgendaBuilder() {
         {edit && (
           <div className="space-y-3">
             <Field label="Title" htmlFor="ag-title"><input id="ag-title" className={inputCls} value={edit.title} onChange={(e) => setEdit({ ...edit, title: e.target.value })} /></Field>
-            <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
+            <div className="grid grid-cols-2 gap-3 sm:grid-cols-[1fr_1.35fr_1.35fr_0.9fr]">
               <Field label="Day" htmlFor="ag-day"><select id="ag-day" className={inputCls} value={edit.day} onChange={(e) => setEdit({ ...edit, day: Number(e.target.value) })}>{ev.days.map((_, i) => <option key={i} value={i + 1}>Day {i + 1}</option>)}</select></Field>
               <Field label="Start" htmlFor="ag-start"><input id="ag-start" type="time" className={inputCls} value={edit.start} onChange={(e) => setEdit({ ...edit, start: e.target.value })} /></Field>
               <Field label="End" htmlFor="ag-end"><input id="ag-end" type="time" className={inputCls} value={edit.end} onChange={(e) => setEdit({ ...edit, end: e.target.value })} /></Field>
               <Field label="Session no." htmlFor="ag-code"><input id="ag-code" className={inputCls} value={edit.code ?? ''} placeholder="—" maxLength={2} onChange={(e) => setEdit({ ...edit, code: e.target.value.replace(/\D/g, '') || null })} /></Field>
             </div>
-            <Field label="Type" htmlFor="ag-kind"><select id="ag-kind" className={inputCls} value={edit.kind} onChange={(e) => setEdit({ ...edit, kind: e.target.value as SessionKind })}><option value="session">Numbered session</option><option value="vendor">Vendor engagement activity</option><option value="break">Break</option></select></Field>
+            <div className="flex items-end gap-2">
+              <div className="min-w-0 flex-1"><Field label="Type" htmlFor="ag-kind"><select id="ag-kind" className={inputCls} value={typeOf(db, edit).id} onChange={(e) => { const t = types.find((x) => x.id === e.target.value)!; setEdit({ ...edit, typeId: t.id, kind: t.behavior }); }}>{types.map((t) => <option key={t.id} value={t.id}>{t.label}</option>)}</select></Field></div>
+              <Button variant="secondary" onClick={() => setManaging(true)} icon={<Settings2 size={15} />}>Types</Button>
+            </div>
             <Field label="Description" htmlFor="ag-desc"><textarea id="ag-desc" rows={2} className={inputCls} value={edit.description} onChange={(e) => setEdit({ ...edit, description: e.target.value })} /></Field>
             {edit.kind !== 'break' && (
               <fieldset>
@@ -145,6 +153,8 @@ export default function AgendaBuilder() {
           </div>
         )}
       </Modal>
+
+      <TypesModal open={managing} onClose={() => setManaging(false)} />
 
       <Modal open={publishing} onClose={() => setPublishing(false)} title="Publish agenda changes" footer={<><Button variant="secondary" onClick={() => setPublishing(false)}>Cancel</Button><Button icon={<Send size={16} />} onClick={() => {
         update((d) => {
@@ -163,5 +173,55 @@ export default function AgendaBuilder() {
         </div>
       </Modal>
     </div>
+  );
+}
+
+export function TypeBadge({ t, className }: { t: SessionType; className?: string }) {
+  return <span className={cx('inline-flex items-center gap-1.5 rounded-full px-2.5 py-0.5 text-[11px] font-semibold', className)} style={{ background: `${t.color}1a`, color: t.color }}><span className="h-1.5 w-1.5 rounded-full" style={{ background: t.color }} />{t.label}</span>;
+}
+
+const PALETTE = ['#B50928', '#7C5CFA', '#0E9384', '#E8502F', '#2563EB', '#D98A0B', '#9333EA', '#7A7590'];
+const BEHAVIOURS: { id: SessionKind; label: string; hint: string }[] = [
+  { id: 'session', label: 'Learning session', hint: 'Has trainers, feedback, live activities and check-in' },
+  { id: 'vendor', label: 'Activity', hint: 'Check-in and check-out; no session feedback' },
+  { id: 'break', label: 'Break', hint: 'No trainers, check-in or feedback' },
+];
+
+function TypesModal({ open, onClose }: { open: boolean; onClose: () => void }) {
+  const { db, update, toast } = useStore();
+  const [rows, setRows] = useState<SessionType[]>([]);
+  React.useEffect(() => { if (open) setRows(structuredClone(sessionTypes(db))); }, [open]); // eslint-disable-line
+  const used = (id: string) => db.sessions.some((s) => typeOf(db, s).id === id);
+  const valid = rows.length > 0 && rows.every((r) => r.label.trim()) && new Set(rows.map((r) => r.label.trim().toLowerCase())).size === rows.length;
+  return (
+    <Modal open={open} onClose={onClose} title="Agenda item types" wide footer={<><span className="mr-auto text-xs font-semibold text-bml">{valid ? '' : 'Each type needs a unique name'}</span><Button variant="secondary" onClick={onClose}>Cancel</Button><Button disabled={!valid} disabledReason="Each type needs a unique name" onClick={() => {
+      update((d) => {
+        d.sessionTypes = rows.map((r) => ({ ...r, label: r.label.trim() }));
+        // Keep each item's behaviour in step with its type.
+        d.sessions.forEach((s) => { const t = d.sessionTypes.find((x) => x.id === (s.typeId ?? '')) ; if (t && s.kind !== t.behavior) s.kind = t.behavior; });
+        audit(d, ADMIN_ACTOR, 'agenda.types', `Updated agenda item types (${rows.length})`);
+      });
+      toast('Types saved'); onClose();
+    }}>Save types</Button></>}>
+      <p className="mb-3 text-sm text-ink-3">Name the kinds of items in your programme, for example Workshop, Panel discussion, Prayer break or Team challenge. The behaviour decides how the app treats them.</p>
+      <div className="space-y-2">
+        {rows.map((r, i) => (
+          <div key={r.id} className="flex flex-wrap items-center gap-2 rounded-2xl bg-canvas p-3">
+            <div className="flex gap-1" role="radiogroup" aria-label={`Colour for ${r.label || 'type'}`}>
+              {PALETTE.map((c) => <button key={c} type="button" role="radio" aria-checked={r.color === c} aria-label={c} onClick={() => setRows(rows.map((x, j) => (j === i ? { ...x, color: c } : x)))} className={cx('h-6 w-6 rounded-full ring-2 ring-offset-1', r.color === c ? 'ring-ink' : 'ring-transparent')} style={{ background: c }} />)}
+            </div>
+            <label htmlFor={`ty-${r.id}`} className="sr-only">Type name</label>
+            <input id={`ty-${r.id}`} className={cx(inputCls, 'min-w-[160px] flex-1 bg-white')} value={r.label} placeholder="Type name" onChange={(e) => setRows(rows.map((x, j) => (j === i ? { ...x, label: e.target.value } : x)))} />
+            <label htmlFor={`tb-${r.id}`} className="sr-only">Behaviour</label>
+            <select id={`tb-${r.id}`} className={cx(inputCls, 'w-auto bg-white')} value={r.behavior} title={BEHAVIOURS.find((b) => b.id === r.behavior)?.hint} onChange={(e) => setRows(rows.map((x, j) => (j === i ? { ...x, behavior: e.target.value as SessionKind } : x)))}>
+              {BEHAVIOURS.map((b) => <option key={b.id} value={b.id}>{b.label}</option>)}
+            </select>
+            <Button size="sm" variant="ghost" aria-label="Remove type" disabled={used(r.id) || rows.length === 1} disabledReason={used(r.id) ? 'In use by agenda items; change those items first' : 'Keep at least one type'} onClick={() => setRows(rows.filter((_, j) => j !== i))} icon={<Trash2 size={15} />} />
+          </div>
+        ))}
+      </div>
+      <Button className="mt-3" variant="soft" icon={<Plus size={15} />} onClick={() => setRows([...rows, { id: uid('type'), label: '', behavior: 'session', color: PALETTE[rows.length % PALETTE.length] }])}>Add type</Button>
+      <ul className="mt-4 space-y-1 text-xs text-ink-3">{BEHAVIOURS.map((b) => <li key={b.id}><b className="text-ink-2">{b.label}:</b> {b.hint}</li>)}</ul>
+    </Modal>
   );
 }

@@ -6,6 +6,8 @@ import { Badge, Button, Card, PageHeader, Tabs, cx, EmptyState } from '../compon
 import { KindIcon, SessionMeta, TrainerStack } from '../components/shared';
 import { formatDay, sessionStatus, toMin, fromMin, durationLabel, mvtParts } from '../lib/time';
 import type { Session } from '../lib/types';
+import { typeOf, showTypeBadge } from '../lib/sessionTypes';
+import { TypeBadge } from '../admin/AgendaBuilder';
 
 export default function Agenda() {
   const { db, me, update } = useStore();
@@ -74,8 +76,7 @@ export default function Agenda() {
                     <button className="min-w-0 flex-1 text-left" onClick={() => setOpen(isOpen ? null : s.id)} aria-expanded={isOpen} disabled={isBreak}>
                       <div className="mb-1 flex flex-wrap items-center gap-1.5">
                         {s.code && <Badge tone="red">Session {s.code}</Badge>}
-                        {s.kind === 'vendor' && <Badge tone="amber">Vendor activity</Badge>}
-                        {isBreak && <Badge tone="ink">Break</Badge>}
+                        {showTypeBadge(db, s) && <TypeBadge t={typeOf(db, s)} />}
                         {st === 'live' && <Badge tone="red" icon={<span className="h-1.5 w-1.5 rounded-full bg-bml" />}>Live</Badge>}
                         {st === 'done' && !isBreak && <Badge tone="teal">Done</Badge>}
                         <span className="text-xs font-semibold text-ink-3 sm:hidden"><SessionMeta s={s} /></span>

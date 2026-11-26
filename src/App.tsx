@@ -8,6 +8,7 @@ import {
 import { StoreProvider, useStore, demoNow, api } from './lib/store';
 import { Login, VenueLogin, SetupScreen, Splash } from './auth/Login';
 import AccountsAdmin from './admin/Accounts';
+import PublicAgenda from './public/PublicAgenda';
 import { NavContext } from './lib/nav';
 import type { Role } from './lib/types';
 import { Button, cx, Modal, Skeleton, ErrorState, EmptyState } from './components/ui';
@@ -472,8 +473,9 @@ function TopBar({ role, switchRole, onReset, onAbout, onMenu }: { role: Role; sw
   );
 }
 
-function Gate({ standalone }: { standalone: boolean }) {
+function Gate({ standalone, publicAgenda }: { standalone: boolean; publicAgenda: boolean }) {
   const { status, statusMessage, actor } = useStore();
+  if (publicAgenda) return <PublicAgenda />;
   if (status === 'loading') return <Splash />;
   if (status === 'nodb') return <SetupScreen message={statusMessage} />;
   if (status === 'error') return <SetupScreen message={statusMessage} error />;
@@ -484,11 +486,12 @@ function Gate({ standalone }: { standalone: boolean }) {
 
 export default function App() {
   const [standalone, setStandalone] = useState(() => window.location.hash === '#venue');
+  const [publicAgenda, setPublicAgenda] = useState(() => window.location.hash === '#agenda');
   useEffect(() => {
-    const on = () => setStandalone(window.location.hash === '#venue');
+    const on = () => { setStandalone(window.location.hash === '#venue'); setPublicAgenda(window.location.hash === '#agenda'); };
     window.addEventListener('hashchange', on);
     return () => window.removeEventListener('hashchange', on);
   }, []);
-  return <StoreProvider><Gate standalone={standalone} /></StoreProvider>;
+  return <StoreProvider><Gate standalone={standalone} publicAgenda={publicAgenda} /></StoreProvider>;
 }
 

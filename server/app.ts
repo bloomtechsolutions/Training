@@ -235,6 +235,25 @@ export async function handle(req: Req, res: Res) {
       return send(res, 200, { actor, demoMode: DEMO_MODE(), adminPasswordSet: !!process.env.ADMIN_PASSWORD });
     }
 
+    // Public, read-only programme for the sign-in page: only the published agenda of the current event.
+    if (path === 'public/agenda') {
+      const currentId = (await getOne('currentEventId', SINGLE_KEY))?.value as string | undefined;
+      const evRows = await prisma().$queryRaw<{ data: any }[]>`SELECT "data" FROM "entity" WHERE "collection" = 'events' AND "deleted" = false`;
+      const events = evRows.map((r) => r.data).filter((e) => e.status === 'published');
+      const ev = events.find((e) => e.id === currentId) ?? events[0];
+      if (!ev) return send(res, 200, { event: null, serverNow: Date.now(), now: await eventNow() });
+      const agenda: any[] = (await getOne('publishedAgenda', ev.id)) ?? [];
+      const types = (await prisma().$queryRaw<{ data: any }[]>`SELECT "data" FROM "entity" WHERE "collection" = 'sessionTypes' AND "deleted" = false`).map((r) => r.data);
+      const region = ev.regionId ? (await getOne('regions', ev.regionId))?.name ?? null : null;
+      return send(res, 200, {
+        event: { id: ev.id, name: ev.name, days: ev.days, venue: ev.venue || '', region },
+        sessions: agenda.map((x) => ({ id: x.id, day: x.day, start: x.start, end: x.end, code: x.code, title: x.title, description: x.description, kind: x.kind, typeId: x.typeId, trainerLabel: x.trainerLabel, order: x.order })),
+        sessionTypes: types.sort((a, b) => (a._o ?? 0) - (b._o ?? 0)).map(({ _o, ...t }) => t),
+        serverNow: Date.now(),
+        now: await eventNow(),
+      }, { 'Cache-Control': 'public, max-age=30' });
+    }
+
     if (path === 'auth/login' && method === 'POST') {
       const b = await readBody(req);
       const login = String(b.login ?? '').trim().toLowerCase();

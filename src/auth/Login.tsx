@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { LogIn, Monitor, Database, AlertTriangle, UserRound, Presentation, Crown, Loader2, ArrowLeft } from 'lucide-react';
+import { LogIn, CalendarDays, Monitor, Database, AlertTriangle, UserRound, Presentation, Crown, Loader2, ArrowLeft } from 'lucide-react';
 import { useStore, api, type Actor } from '../lib/store';
 import { Button, Field, inputCls, cx } from '../components/ui';
 
@@ -24,7 +24,7 @@ function Frame({ children }: { children: React.ReactNode }) {
           <h1 className="font-display text-5xl font-extrabold leading-[1.02]">Two days to align, connect, learn and transform.</h1>
           <p className="mt-4 max-w-md text-white/80">Regional refresher training for a Digital-First, Sales-Driven and Customer-Centric team.</p>
         </div>
-        <p className="mt-6 hidden text-xs text-white/60 lg:block">Bank of Maldives · Refresher Training</p>
+        <a href="/#agenda" className="mt-8 inline-flex w-fit items-center gap-2 rounded-2xl bg-white/15 px-5 py-3 text-sm font-bold text-white backdrop-blur transition hover:bg-white/25"><CalendarDays size={18} /> View the programme</a>
       </div>
       <div className="flex flex-1 items-center justify-center px-4 py-10 sm:px-8">
         <div className="w-full max-w-md">{children}</div>
@@ -73,7 +73,8 @@ export function Login() {
           </div>
         </div>
       )}
-      <a href="/#venue" className="mt-6 flex items-center gap-2 text-sm font-semibold text-lav-600 hover:text-lav-700"><Monitor size={16} /> Setting up the venue screen? Use a display code</a>
+      <a href="/#agenda" className="mt-6 flex items-center gap-2 text-sm font-semibold text-bml hover:text-bml-700 lg:hidden"><CalendarDays size={16} /> View the programme without signing in</a>
+      <a href="/#venue" className="mt-3 flex items-center gap-2 text-sm font-semibold text-lav-600 hover:text-lav-700"><Monitor size={16} /> Setting up the venue screen? Use a display code</a>
     </Frame>
   );
 }

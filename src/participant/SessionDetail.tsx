@@ -7,6 +7,8 @@ import { SessionMeta, SlideView, KindIcon } from '../components/shared';
 import { formatDay, sessionStatus } from '../lib/time';
 import { NoteEditor } from './NoteEditor';
 import { ResourceRow } from './Library';
+import { typeOf, showTypeBadge } from '../lib/sessionTypes';
+import { TypeBadge } from '../admin/AgendaBuilder';
 
 export default function SessionDetail() {
   const { db, me, update, toast } = useStore();
@@ -45,7 +47,7 @@ export default function SessionDetail() {
           <div className="mb-3 flex flex-wrap items-center gap-2">
             <span className="flex h-10 w-10 items-center justify-center rounded-xl bg-white text-bml shadow-sm"><KindIcon s={s} /></span>
             {s.code && <Badge tone="red">Session {s.code}</Badge>}
-            {s.kind === 'vendor' && <Badge tone="amber">Vendor activity</Badge>}
+            {showTypeBadge(db, s) && <TypeBadge t={typeOf(db, s)} />}
             <Badge tone={st === 'live' ? 'red' : st === 'done' ? 'teal' : 'lav'}>{st === 'live' ? 'Live now' : st === 'done' ? 'Completed' : 'Upcoming'}</Badge>
             {checked && <Badge tone="green">Checked in</Badge>}
           </div>

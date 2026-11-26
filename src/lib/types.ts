@@ -53,6 +53,9 @@ export interface TrainingEvent {
 
 export type SessionKind = 'session' | 'break' | 'vendor';
 
+/** Organiser-defined agenda item type. `behavior` decides how the app treats it (learning session, activity or break). */
+export interface SessionType { id: string; label: string; behavior: SessionKind; color: string }
+
 export interface Session {
   id: string;
   eventId: string;
@@ -67,6 +70,7 @@ export interface Session {
   trainerLabel: string; // as printed on the agenda
   objectives: string[];
   engage: string | null; // key of the Engage Live experience
+  typeId?: string; // SessionType id; falls back to the default type for `kind`
   order: number;
 }
 
@@ -309,5 +313,6 @@ export interface DB {
   roleplay: { assignments: RoleplayAssignment[]; prepDeadline: number | null };
   vendorScores: Record<string, number>; // teamId -> points awarded for external engagement
   pendingAgendaChanges: boolean;
-  publishedAgenda: Record<string, Session[]>; // what participants, trainers and the venue screen see
+  publishedAgenda: Record<string, Session[]>;
+  sessionTypes: SessionType[]; // what participants, trainers and the venue screen see
 }

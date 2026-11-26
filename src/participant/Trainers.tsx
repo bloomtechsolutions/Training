@@ -32,6 +32,7 @@ export function TrainerDirectory() {
         })}
       </div>
 
+      {db.leaders.length > 0 && <>
       <SectionTitle className="mt-8" title="Leadership" eyebrow="Joining the programme" />
       <div className="grid gap-3 sm:grid-cols-2">
         {db.leaders.map((l) => (
@@ -41,6 +42,7 @@ export function TrainerDirectory() {
           </Card>
         ))}
       </div>
+      </>}
       <Card className="mt-3 flex flex-wrap items-center justify-between gap-3 p-4">
         <p className="text-sm text-ink-2">Have a question for leadership? Submit it in advance or during the event.</p>
         <Button variant="soft" onClick={() => go('leadership')}>Ask Leadership</Button>

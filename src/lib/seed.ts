@@ -3,7 +3,7 @@
 // from the programme brief. Designations, departments and biographies are left
 // blank on purpose: they must be supplied by BML, not invented.
 import type {
-  Activity, AttendanceRecord, DB, Deck, Feedback, Idea, Photo, QAItem, Resource, ScoreEntry, Session,
+  SessionType, Activity, AttendanceRecord, DB, Deck, Feedback, Idea, Photo, QAItem, Resource, ScoreEntry, Session,
   SessionBlock, Slide, Team, Trainer, User, WordEntry, ChallengePost, Commitment, Announcement,
 } from './types.js';
 import { mvtEpoch } from './time.js';
@@ -27,6 +27,12 @@ export const REGIONS = [
   { id: 'south-central', name: 'South Central' },
   { id: 'south', name: 'South' },
   { id: 'male', name: 'Malé' },
+];
+
+export const DEFAULT_SESSION_TYPES: SessionType[] = [
+  { id: 'type-session', label: 'Numbered session', behavior: 'session', color: '#B50928' },
+  { id: 'type-vendor', label: 'Engagement activity', behavior: 'vendor', color: '#D98A0B' },
+  { id: 'type-break', label: 'Break', behavior: 'break', color: '#7A7590' },
 ];
 
 export const TEAMS: Team[] = [
@@ -309,5 +315,6 @@ export function buildSeed(): DB {
     vendorScores: {},
     pendingAgendaChanges: false,
     publishedAgenda: { [EVENT_ID]: structuredClone(sessions) },
+    sessionTypes: DEFAULT_SESSION_TYPES,
   };
 }

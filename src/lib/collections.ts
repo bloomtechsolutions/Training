@@ -32,6 +32,7 @@ export const COLLECTIONS: Record<string, CollectionDef> = {
   resources: { kind: 'array', keyOf: byId },
   photos: { kind: 'array', keyOf: byId },
   blocks: { kind: 'array', keyOf: byId, ordered: true },
+  sessionTypes: { kind: 'array', keyOf: byId, ordered: true },
   rubric: { kind: 'array', keyOf: byId },
   selfAssess: { kind: 'array', keyOf: (x) => String(x.userId) },
   scenarioProgress: { kind: 'array', keyOf: (x) => `${x.userId}:${x.scenarioId}` },
