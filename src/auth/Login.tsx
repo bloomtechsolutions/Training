@@ -1,7 +1,6 @@
 import React, { useState } from 'react';
 import { LogIn, CalendarDays, Monitor, Database, AlertTriangle, UserRound, Presentation, Crown, Loader2, ArrowLeft } from 'lucide-react';
 import { useStore, api, type Actor } from '../lib/store';
-import PublicAgenda from '../public/PublicAgenda';
 import { Button, Field, inputCls, cx } from '../components/ui';
 
 function Brand({ dark = false }: { dark?: boolean }) {
@@ -25,10 +24,13 @@ function Frame({ children }: { children: React.ReactNode }) {
           <h1 className="font-display text-5xl font-extrabold leading-[1.02]">Two days to align, connect, learn and transform.</h1>
           <p className="mt-4 max-w-md text-white/80">Regional refresher training for a Digital-First, Sales-Driven and Customer-Centric team.</p>
         </div>
-        <a href="/#agenda" className="mt-8 inline-flex w-fit items-center gap-2 rounded-2xl bg-white/15 px-5 py-3 text-sm font-bold text-white backdrop-blur transition hover:bg-white/25"><CalendarDays size={18} /> View the programme</a>
+        <a href="/" className="mt-8 hidden w-fit items-center gap-2 rounded-2xl bg-white/15 px-5 py-3 text-sm font-bold text-white backdrop-blur transition hover:bg-white/25 lg:inline-flex"><CalendarDays size={18} /> View the programme</a>
       </div>
       <div className="flex flex-1 items-center justify-center px-4 py-10 sm:px-8">
-        <div className="w-full max-w-md">{children}</div>
+        <div className="w-full max-w-md">
+          <a href="/" className="mb-6 inline-flex items-center gap-1.5 text-sm font-semibold text-ink-3 hover:text-ink"><ArrowLeft size={15} /> Back to the programme</a>
+          {children}
+        </div>
       </div>
     </div>
   );
@@ -129,11 +131,6 @@ export function Splash() {
       <Loader2 className="animate-spin text-ink-3" />
     </div>
   );
-}
-
-/** Signed-out home: the programme first, sign-in alongside (desktop) or below (phone). */
-export function Landing() {
-  return <PublicAgenda aside={<SignInForm card />} />;
 }
 
 /** Full-page sign-in (kept for direct use). */

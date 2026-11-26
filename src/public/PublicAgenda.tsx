@@ -21,9 +21,10 @@ interface PublicData {
  */
 const PX_PER_MIN = 1.5;
 const MIN_BLOCK = 76;
+const MAX_BLOCK = 190; // very long items stay compact; the duration label shows their length
 const FOLD_AFTER = 45; // gaps longer than this fold into a wave
 
-export default function PublicAgenda({ embedded = false, aside }: { embedded?: boolean; aside?: React.ReactNode }) {
+export default function PublicAgenda({ embedded = false, aside, signedIn = false }: { embedded?: boolean; aside?: React.ReactNode; signedIn?: boolean }) {
   const [data, setData] = useState<PublicData | null>(null);
   const [error, setError] = useState('');
   const [offset, setOffset] = useState(0); // event clock minus local clock
@@ -66,9 +67,9 @@ export default function PublicAgenda({ embedded = false, aside }: { embedded?: b
                 <div className="flex h-10 w-10 items-center justify-center rounded-2xl bg-white/15 font-display text-lg font-extrabold">R</div>
                 <div className="leading-tight"><div className="font-display font-extrabold">BML Refresher</div><div className="text-[10px] font-semibold uppercase tracking-[.16em] text-white/70">Learn. Connect. Transform.</div></div>
               </div>
-              {aside ? (
-                <button onClick={() => { document.getElementById('signin')?.scrollIntoView({ behavior: 'smooth', block: 'center' }); setTimeout(() => document.getElementById('login')?.focus(), 400); }} className="flex h-10 items-center gap-1.5 rounded-xl bg-white px-4 text-sm font-bold text-bml shadow-md hover:bg-bml-50 lg:hidden"><LogIn size={15} /> Sign in</button>
-              ) : <a href="/" className="flex h-10 items-center gap-1.5 rounded-xl bg-white/15 px-3 text-sm font-semibold hover:bg-white/25"><ArrowLeft size={15} /> Sign in</a>}
+              {signedIn
+                ? <a href="/" className="flex h-11 items-center gap-1.5 rounded-xl bg-white/15 px-4 text-sm font-semibold hover:bg-white/25"><ArrowLeft size={15} /> Back to app</a>
+                : <a href="/#signin" className="flex h-11 items-center gap-2 rounded-xl bg-white px-5 text-sm font-bold text-bml shadow-lg shadow-black/10 transition hover:bg-bml-50"><LogIn size={16} /> Sign in</a>}
             </div>
             <div className="mt-8 text-xs font-bold uppercase tracking-[.2em] text-white/70">The programme</div>
             <h1 className="mt-1 font-display text-3xl font-extrabold leading-tight sm:text-5xl">{ev?.name ?? 'Agenda'}</h1>
@@ -112,7 +113,7 @@ export default function PublicAgenda({ embedded = false, aside }: { embedded?: b
                     const t = typeOf(db, s);
                     const st = status(s);
                     const dur = toMin(s.end) - toMin(s.start);
-                    const h = Math.max(MIN_BLOCK, dur * PX_PER_MIN);
+                    const h = Math.min(MAX_BLOCK, Math.max(MIN_BLOCK, dur * PX_PER_MIN));
                     const date = ev.days[s.day - 1]?.date ?? ev.days[0].date;
                     const pct = st === 'live' ? Math.min(100, ((now - mvtEpoch(date, s.start)) / (dur * 60000)) * 100) : st === 'done' ? 100 : 0;
                     const isBreak = t.behavior === 'break';
