@@ -9,7 +9,7 @@ export const emptyNote = (): Note => ({ text: '', learned: ['', '', ''], action:
 
 /** Private learning notes for one session. Auto-saves after a short pause and on explicit save. */
 export function NoteEditor({ sessionId, compact }: { sessionId: string; compact?: boolean }) {
-  const { db, me, update, toast, awardPointsOnce } = useNoteStore();
+  const { db, me, update, toast } = useStore();
   const key = `${me.id}:${sessionId}`;
   const stored = db.notes[key];
   const [draft, setDraft] = useState<Note>(stored ?? emptyNote());
@@ -22,7 +22,8 @@ export function NoteEditor({ sessionId, compact }: { sessionId: string; compact?
     update((d) => { d.notes[key] = { ...n, updatedAt: Date.now() }; });
     setDirty(false);
     const reflected = n.learned.filter((x) => x.trim()).length >= 3 && n.action.trim();
-    if (reflected) awardPointsOnce(`reflection:${me.id}:${sessionId}`, 50, 'Reflection completed');
+    // Points are awarded once by the server; tell the person the first time.
+    if (reflected && !db.scores.some((x) => x.key === `reflection:${me.id}:${sessionId}`)) toast('+50 points · Reflection completed', 'info');
     if (manual) toast('Notes saved privately');
   };
 
@@ -64,13 +65,3 @@ export function NoteEditor({ sessionId, compact }: { sessionId: string; compact?
   );
 }
 
-import { awardPoints } from '../lib/store';
-function useNoteStore() {
-  const s = useStore();
-  const awardPointsOnce = (key: string, pts: number, reason: string) => {
-    if (s.db.scores.some((x) => x.key === key)) return;
-    s.update((d) => { if (awardPoints(d, key, s.me.id, s.me.teamId, pts, reason)) { /* awarded */ } });
-    s.toast(`+${pts} points · ${reason}`, 'info');
-  };
-  return { ...s, awardPointsOnce };
-}

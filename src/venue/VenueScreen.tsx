@@ -1,6 +1,6 @@
 import React, { useEffect, useLayoutEffect, useRef, useState } from 'react';
 import { Maximize2, WifiOff, Coffee, Trophy, Award, Sparkles, Lightbulb, CheckCircle2, Clock } from 'lucide-react';
-import { useStore, useNow, useTick, qrPayload, qrToken, teamPoints, publishedSessions, currentAndNext } from '../lib/store';
+import { useStore, useNow, useTick, teamPoints, publishedSessions, currentAndNext, useQr } from '../lib/store';
 import { QR, SlideView, WordCloud, Leaderboard, QuestionVisual } from '../components/shared';
 import { PollResults } from '../engage/Quiz';
 import { Avatar, cx } from '../components/ui';
@@ -43,7 +43,7 @@ function Brand({ ev }: { ev: { name: string } }) {
 }
 
 export function VenueStage() {
-  const { db, syncAvailable } = useStore();
+  const { db, online } = useStore();
   const now = useNow();
   const real = useTick(500);
   const ev = db.events.find((e) => e.id === db.live.eventId) ?? db.events[0];
@@ -57,9 +57,12 @@ export function VenueStage() {
   const dayIdx = Math.max(0, ev.days.findIndex((d) => d.date === mvtParts(now).date));
   const remaining = live.phase === 'paused' ? live.pausedRemaining ?? 0 : live.deadline ? Math.max(0, live.deadline - real) : 0;
 
+  const qrTarget = session ?? liveSession ?? next;
+  const { qr, url: qrUrl } = useQr(mode === 'qr' ? ev.id : undefined, mode === 'qr' ? qrTarget?.id : undefined);
+
   if (mode === 'blackout') return <div className="h-full w-full bg-black" aria-label="Screen blacked out" />;
 
-  if (mode === 'offline' || !syncAvailable) return (
+  if (mode === 'offline' || !online) return (
     <Frame className="flex flex-col items-center justify-center">
       <WifiOff size={140} className="text-amber-500" />
       <div className="mt-10 font-display text-8xl font-extrabold">Reconnecting…</div>
@@ -81,8 +84,7 @@ export function VenueStage() {
   );
 
   if (mode === 'qr') {
-    const target = session ?? liveSession ?? next;
-    const tok = target ? qrToken(ev.id, target.id, real) : null;
+    const target = qrTarget;
     return (
       <Frame>
         <div className="absolute inset-0 mesh opacity-40" />
@@ -91,12 +93,12 @@ export function VenueStage() {
             <div className="text-4xl font-bold uppercase tracking-[.2em] text-amber-500">Check in</div>
             <h1 className="mt-4 font-display text-[110px] font-extrabold leading-none">{target ? (target.code ? `Session ${target.code}` : 'Engagement') : 'No session'}</h1>
             <p className="mt-6 text-5xl font-semibold text-white/85">{target?.title}</p>
-            <p className="mt-12 text-4xl text-white/70">Open BML Refresher → Check in → Scan</p>
-            {tok && <p className="mt-5 text-3xl text-white/60">Or enter code <span className="rounded-xl bg-white/10 px-4 py-1 font-mono font-bold tracking-widest text-white">{tok.token}</span> · refreshes in {Math.ceil(tok.expiresIn / 1000)}s</p>}
+            <p className="mt-12 text-4xl text-white/70">Point your phone camera at the code and tap the link</p>
+            {qr && <p className="mt-5 text-3xl text-white/60">Or enter code <span className="rounded-xl bg-white/10 px-4 py-1 font-mono font-bold tracking-widest text-white">{qr.code}</span> · refreshes in {Math.max(0, Math.ceil((qr.expiresAt - Date.now()) / 1000))}s</p>}
           </div>
-          {target && <div className="rounded-[48px] bg-white p-10 shadow-2xl"><QR value={qrPayload(ev.id, target.id, real)} size={640} /></div>}
+          {target && <div className="rounded-[48px] bg-white p-10 shadow-2xl">{qrUrl ? <QR value={qrUrl} size={640} /> : <div className="flex h-[640px] w-[640px] items-center justify-center text-4xl text-ink-3">Loading code…</div>}</div>}
         </div>
-        <div className="absolute bottom-8 left-0 right-0 text-center text-2xl text-white/40">Demo code · validated locally in this prototype</div>
+        <div className="absolute bottom-8 left-0 right-0 text-center text-2xl text-white/40">Codes rotate every 30 seconds and are verified by the server</div>
       </Frame>
     );
   }
@@ -292,7 +294,7 @@ export default function VenueScreen({ standalone }: { standalone?: boolean }) {
       <Scaled className="h-full max-h-screen"><VenueStage /></Scaled>
       {standalone && hint && (
         <div className="absolute bottom-4 right-4 flex gap-2">
-          <span className="rounded-xl bg-white/10 px-3 py-2 text-xs font-semibold text-white/80 backdrop-blur">Venue screen · local demo sync with tabs in this browser</span>
+          <span className="rounded-xl bg-white/10 px-3 py-2 text-xs font-semibold text-white/80 backdrop-blur">Venue screen · updates every second</span>
           <button onClick={() => document.documentElement.requestFullscreen?.().catch(() => {})} className="flex items-center gap-2 rounded-xl bg-white/15 px-3 py-2 text-xs font-bold text-white backdrop-blur hover:bg-white/25"><Maximize2 size={14} /> Full screen</button>
         </div>
       )}

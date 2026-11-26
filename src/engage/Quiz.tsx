@@ -1,17 +1,17 @@
 import React, { useState } from 'react';
 import { CheckCircle2, XCircle, Timer, Trophy, RotateCcw, Lock, Send } from 'lucide-react';
-import { useStore, awardPoints, uid, useTick } from '../lib/store';
+import { useStore, uid, useTick } from '../lib/store';
+import { keys } from '../lib/collections';
 import { Badge, Button, Card, cx, Progress, inputCls } from '../components/ui';
 import { QuestionVisual, WordCloud } from '../components/shared';
 import type { Activity, DB, Question } from '../lib/types';
 import { mmss } from '../lib/time';
 
-export function recordAnswer(d: DB, a: Activity, q: Question, userId: string, teamId: string | null, optionId: string) {
-  if (d.responses.some((r) => r.activityId === a.id && r.questionId === q.id && r.userId === userId)) return { dup: true, correct: false };
-  const correct = q.kind !== 'poll' && q.correct === optionId;
-  d.responses.push({ id: uid('r'), activityId: a.id, questionId: q.id, userId, optionId, correct: q.kind === 'poll' ? undefined : correct, ts: Date.now() });
-  if (correct) awardPoints(d, `quiz:${a.id}:${q.id}:${userId}`, userId, teamId, q.points, `Correct answer · ${a.title}`);
-  return { dup: false, correct };
+/** Adds an answer locally; the server checks it, marks it correct or not and awards points. */
+export function recordAnswer(d: DB, a: Activity, q: Question, userId: string, _teamId: string | null, optionId: string) {
+  if (d.responses.some((r) => r.activityId === a.id && r.questionId === q.id && r.userId === userId)) return { dup: true };
+  d.responses.push({ id: keys.response(a.id, q.id, userId), activityId: a.id, questionId: q.id, userId, optionId, ts: Date.now() });
+  return { dup: false };
 }
 
 export function PollResults({ db, activityId, q, dark }: { db: DB; activityId: string; q: Question; dark?: boolean }) {
@@ -99,11 +99,11 @@ export function SelfPacedActivity({ activity }: { activity: Activity }) {
             else state = o.id === q.correct ? 'correct' : mine.optionId === o.id ? 'wrong' : 'dim';
           }
           return <OptionButton key={o.id} idx={i} label={o.text} state={state} disabled={!!mine} onClick={() => {
-            let res = { dup: false, correct: false };
-            update((d) => { res = recordAnswer(d, activity, q, me.id, me.teamId, o.id); });
-            if (q.kind !== 'poll') {
-              if (q.correct === o.id) { toast(`Correct! +${q.points} points`); celebrate(); } else toast('Not quite. See the explanation.', 'info');
-            }
+            update((d) => { recordAnswer(d, activity, q, me.id, me.teamId, o.id); }).then((res) => {
+              if (!res || q.kind === 'poll') return;
+              const saved = res.entities.find((e) => e.c === 'responses')?.v;
+              if (saved?.correct) { toast(`Correct! +${q.points} points`); celebrate(); } else if (saved) toast('Not quite. See the explanation.', 'info');
+            });
           }} />;
         })}
       </div>

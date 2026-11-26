@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { CheckCircle2, Star, ShieldCheck, ChevronRight } from 'lucide-react';
-import { useStore, useNow, useEvent, useSessions, uid } from '../lib/store';
+import { useStore, useNow, useEvent, useSessions } from '../lib/store';
+import { keys } from '../lib/collections';
 import { useNav } from '../lib/nav';
 import { Avatar, Badge, Button, Card, PageHeader, Stars, Tabs, cx, EmptyState, inputCls, Field } from '../components/ui';
 import { SESSION_CRITERIA, EVENT_CRITERIA, MOODS } from '../lib/content';
@@ -46,7 +47,7 @@ function SessionForm({ s, onDone }: { s: Session; onDone: () => void }) {
         <Field label="Comments (optional)" htmlFor="fb-comment"><textarea id="fb-comment" className={cx(inputCls, 'mt-1')} rows={3} value={comment} onChange={(e) => setComment(e.target.value)} placeholder="What worked well? What could be better?" /></Field>
       </Card>
       <Button size="lg" className="w-full" disabled={!complete} disabledReason="Rate every criterion" onClick={() => {
-        update((d) => { trainers.forEach((tid) => d.feedback.push({ id: uid('fb'), eventId: ev.id, sessionId: s.id, trainerId: tid, userId: me.id, ratings: ratings[tid], mood, comment, ts: Date.now() })); });
+        update((d) => { trainers.forEach((tid) => d.feedback.push({ id: keys.feedback(ev.id, s.id, tid, me.id), eventId: ev.id, sessionId: s.id, trainerId: tid, userId: me.id, ratings: ratings[tid], mood, comment, ts: Date.now() })); });
         toast('Thank you! Feedback submitted'); onDone();
       }}>Submit feedback</Button>
     </div>
@@ -67,7 +68,7 @@ function EventForm({ onDone }: { onDone: () => void }) {
         <Field label="Overall comments (optional)" htmlFor="ev-c"><textarea id="ev-c" className={inputCls} rows={3} value={comment} onChange={(e) => setComment(e.target.value)} /></Field>
         <Field label="Suggestions for future refreshers (optional)" htmlFor="ev-s"><textarea id="ev-s" className={inputCls} rows={3} value={sugg} onChange={(e) => setSugg(e.target.value)} /></Field>
       </Card>
-      <Button size="lg" className="w-full" disabled={!complete} disabledReason="Rate every item" onClick={() => { update((d) => { d.feedback.push({ id: uid('fb'), eventId: ev.id, sessionId: null, trainerId: null, userId: me.id, ratings: r, mood: null, comment, suggestions: sugg, ts: Date.now() }); }); toast('Thank you for your event feedback'); onDone(); }}>Submit event feedback</Button>
+      <Button size="lg" className="w-full" disabled={!complete} disabledReason="Rate every item" onClick={() => { update((d) => { d.feedback.push({ id: keys.feedback(ev.id, null, null, me.id), eventId: ev.id, sessionId: null, trainerId: null, userId: me.id, ratings: r, mood: null, comment, suggestions: sugg, ts: Date.now() }); }); toast('Thank you for your event feedback'); onDone(); }}>Submit event feedback</Button>
     </div>
   );
 }

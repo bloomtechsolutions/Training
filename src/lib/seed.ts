@@ -5,8 +5,8 @@
 import type {
   Activity, AttendanceRecord, DB, Deck, Feedback, Idea, Photo, QAItem, Resource, ScoreEntry, Session,
   SessionBlock, Slide, Team, Trainer, User, WordEntry, ChallengePost, Commitment, Announcement,
-} from './types';
-import { mvtEpoch } from './time';
+} from './types.js';
+import { mvtEpoch } from './time.js';
 
 export const DB_VERSION = 4;
 export const EVENT_ID = 'ev-2026-11';

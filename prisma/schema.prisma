@@ -1,0 +1,50 @@
+// BML Refresher – Prisma schema (Prisma Postgres on Vercel).
+// Learning data is stored as typed JSON documents per collection with deterministic keys
+// (e.g. one response per activity+question+user) and a global revision for change streaming.
+
+generator client {
+  provider      = "prisma-client-js"
+  binaryTargets = ["native", "rhel-openssl-3.0.x"]
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+model Entity {
+  collection String
+  key        String
+  eventId    String?  @map("event_id")
+  ownerId    String?  @map("owner_id")
+  data       Json
+  deleted    Boolean  @default(false)
+  rev        BigInt
+  updatedAt  DateTime @default(now()) @map("updated_at")
+
+  @@id([collection, key])
+  @@index([rev])
+  @@index([collection, ownerId])
+  @@map("entity")
+}
+
+model Account {
+  id           String   @id
+  login        String   @unique
+  name         String
+  role         String // participant | trainer | admin | leadership
+  trainerId    String?  @map("trainer_id")
+  passwordHash String?  @map("password_hash")
+  disabled     Boolean  @default(false)
+  lastLoginAt  DateTime? @map("last_login_at")
+  createdAt    DateTime @default(now()) @map("created_at")
+
+  @@map("account")
+}
+
+model Setting {
+  key   String @id
+  value Json
+
+  @@map("setting")
+}

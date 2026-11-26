@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { Target, Plus, Trash2, Award, Bot, Library, Images, CheckCircle2, Circle, Layers, UserCheck, Clock } from 'lucide-react';
-import { useStore, useEvent, uid, awardPoints } from '../lib/store';
+import { useStore, useEvent, uid } from '../lib/store';
 import { useNav } from '../lib/nav';
 import { Badge, Button, Card, PageHeader, Tabs, cx, EmptyState, inputCls, Field, Modal, Progress } from '../components/ui';
 import { Flashcards } from '../engage/Cards';
@@ -49,8 +49,7 @@ export default function Beyond() {
     x.progress = progress;
     x.status = progress >= 100 ? 'done' : progress > 0 ? 'in-progress' : 'not-started';
     if (progress >= 100) {
-      if (awardPoints(d, `commitment:${c.id}`, me.id, me.teamId, 100, 'Completed commitment')) { setTimeout(() => { celebrate(); toast('Commitment completed · +100 points'); }, 0); }
-      if (!x.review) x.review = { status: 'pending', note: '', reviewer: '' };
+      if (!d.scores.some((s) => s.key === `commitment:${c.id}`)) setTimeout(() => { celebrate(); toast('Commitment completed · +100 points'); }, 0);
     }
   });
 

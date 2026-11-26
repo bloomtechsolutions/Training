@@ -1,5 +1,5 @@
 // All agenda times are Maldives local time (MVT, UTC+5, no DST).
-import type { Session, TrainingEvent } from './types';
+import type { Session, TrainingEvent } from './types.js';
 
 export const MVT_OFFSET_MIN = 5 * 60;
 

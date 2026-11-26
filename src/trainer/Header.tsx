@@ -5,7 +5,8 @@ import { Avatar, cx } from '../components/ui';
 import { useTrainerContext } from './useTrainer';
 
 export function TrainerBar({ title, subtitle, actions }: { title: string; subtitle?: string; actions?: React.ReactNode }) {
-  const { db, trainerId, setTrainerId } = useStore();
+  const { db, trainerId, setTrainerId, actor } = useStore();
+  const locked = actor?.role === 'trainer';
   const { trainer, assigned, session, setSession, allSessions } = useTrainerContext();
   const staff = db.trainers.filter((t) => t.kind === 'staff');
   const others = allSessions.filter((s) => s.kind === 'session' && !s.trainerIds.includes(trainerId));
@@ -21,10 +22,12 @@ export function TrainerBar({ title, subtitle, actions }: { title: string; subtit
           </div>
         </div>
         <div className="flex flex-wrap items-center gap-2">
-          <label htmlFor="persona" className="text-xs font-semibold text-ink-3">Demo trainer</label>
-          <select id="persona" value={trainerId} onChange={(e) => setTrainerId(e.target.value)} className="h-10 rounded-xl border-0 bg-white px-3 text-sm font-semibold shadow-sm ring-1 ring-inset ring-ink/10">
-            {staff.map((t) => <option key={t.id} value={t.id}>{t.name}</option>)}
-          </select>
+          {!locked && <>
+            <label htmlFor="persona" className="text-xs font-semibold text-ink-3">Acting for trainer</label>
+            <select id="persona" value={trainerId} onChange={(e) => setTrainerId(e.target.value)} className="h-10 rounded-xl border-0 bg-white px-3 text-sm font-semibold shadow-sm ring-1 ring-inset ring-ink/10">
+              {staff.map((t) => <option key={t.id} value={t.id}>{t.name}</option>)}
+            </select>
+          </>}
           {actions}
         </div>
       </div>
@@ -36,7 +39,7 @@ export function TrainerBar({ title, subtitle, actions }: { title: string; subtit
             </button>
           ))}
           {others.slice(0, 3).map((s) => (
-            <span key={s.id} title="Not assigned to you. Ask an organiser for authorisation." className="flex shrink-0 cursor-not-allowed items-center gap-1.5 rounded-2xl bg-ink/[.04] px-3 py-2.5 text-sm font-semibold text-ink-4">
+            <span key={s.id} title="Not assigned to you. Ask an organiser to add you to this session." className="flex shrink-0 cursor-not-allowed items-center gap-1.5 rounded-2xl bg-ink/[.04] px-3 py-2.5 text-sm font-semibold text-ink-4">
               <Lock size={13} /><span className="font-mono text-xs">{s.code}</span> Not assigned
             </span>
           ))}

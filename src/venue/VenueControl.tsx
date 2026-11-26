@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { ExternalLink, Maximize2, X, Home, QrCode, CalendarDays, UserRound, Presentation, BarChart3, HelpCircle, Cloud, MessageSquareText, Timer, Trophy, Coffee, Award, PartyPopper, MonitorOff, WifiOff, Info } from 'lucide-react';
-import { useStore, setLive, audit, useSessions } from '../lib/store';
+import { useStore, setLive, audit, useSessions, api } from '../lib/store';
 import { Badge, Button, Card, PageHeader, cx, inputCls, Field } from '../components/ui';
 import { Scaled, VenueStage } from './VenueScreen';
 import type { VenueMode } from '../lib/types';
@@ -31,24 +31,34 @@ export default function VenueControl() {
   const [mins, setMins] = useState(5);
   const [label, setLabel] = useState('Team activity');
   const live = db.live;
-  const actor = role === 'trainer' ? 'Trainer (demo)' : 'Event Organiser (demo)';
+  const actor = role === 'trainer' ? 'Trainer' : 'Event organiser';
   const setMode = (m: VenueMode) => {
     const act = db.activities.find((a) => a.id === live.activityId);
     if ((m === 'quiz' || m === 'poll') && (!act || !act.questions.length)) { toast('Launch a quiz or poll from Trainer Studio → Activities first', 'warn'); }
     update((d) => { setLive(d, { venueMode: m }); audit(d, actor, 'venue.mode', `Venue screen → ${m}`); });
   };
 
+  const [displayCode, setDisplayCode] = useState<string | null>(null);
+  const makeCode = async () => {
+    try { const r = await api<{ code: string }>('admin/venue-code', {}); setDisplayCode(r.code); } catch (e) { toast((e as Error).message, 'err'); }
+  };
+
   const openWindow = () => {
     let w: Window | null = null;
     try { w = window.open(`${window.location.pathname}${window.location.search}#venue`, 'bml-venue', 'noopener=no'); } catch { w = null; }
-    if (!w) { toast('This viewer blocked the new window. Use “Full-screen preview”, or open this app in its own browser tab and add #venue to the address.', 'warn'); setFull(true); }
+    if (!w) { toast('Your browser blocked the new window. Allow pop-ups, or open /#venue in a new tab.', 'warn'); setFull(true); }
   };
 
   return (
     <div>
       <PageHeader eyebrow="Venue Live Screen" title="Screen control" subtitle="Choose what the projector shows. No private data, speaker notes or individual results ever appear on the public screen."
         actions={<><Button variant="secondary" icon={<Maximize2 size={16} />} onClick={() => setFull(true)}>Full-screen preview</Button><Button icon={<ExternalLink size={16} />} onClick={openWindow}>Open screen in new window</Button></>} />
-      <Card className="mb-4 flex items-start gap-3 bg-amber-50/60 p-4 ring-amber-100"><Info className="mt-0.5 shrink-0 text-amber-600" size={18} /><p className="text-sm text-ink-2"><b>Local demo synchronisation.</b> The screen window follows these controls through BroadcastChannel, which only links tabs in the same browser on the same device. Production uses an authenticated real-time service so a trainer’s phone can drive the projector.</p></Card>
+      <Card className="mb-4 flex flex-wrap items-center gap-3 p-4">
+        <Info className="shrink-0 text-lav-600" size={18} />
+        <p className="min-w-0 flex-1 text-sm text-ink-2">The projector computer can open <b className="font-mono">{window.location.origin}/#venue</b> and sign in with a display code. It follows these controls within about a second, from any device.</p>
+        {displayCode ? <span className="rounded-xl bg-ink px-3 py-2 font-mono text-lg font-bold tracking-widest text-white">{displayCode}</span> : null}
+        <Button size="sm" variant="soft" onClick={makeCode}>{displayCode ? 'New display code' : 'Get display code'}</Button>
+      </Card>
       <div className="grid gap-5 xl:grid-cols-[1fr_380px]">
         <div className="min-w-0">
           <div className="overflow-hidden rounded-2xl bg-black shadow-pop ring-1 ring-ink/10"><Scaled><VenueStage /></Scaled></div>

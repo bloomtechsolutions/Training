@@ -3,9 +3,11 @@ import {
   Home, CalendarDays, Radio, Users, UserCircle, LayoutDashboard, Presentation, Layers, MessageSquareText, BarChart3,
   Settings2, Clock, RotateCcw, Info, WifiOff, HardDriveDownload, CalendarPlus, MapPinned, UserCog, FolderOpen, QrCode,
   Megaphone, Star, Lightbulb, Target, Award, FileBarChart, ShieldCheck, Monitor, BookOpen, Library, NotebookPen, Rocket,
-  ListChecks, Trophy, X, ChevronDown, Menu, Sparkles, Images, HelpCircle,
+  ListChecks, Trophy, X, ChevronDown, Menu, Sparkles, Images, HelpCircle, LogOut, KeyRound,
 } from 'lucide-react';
-import { StoreProvider, useStore, demoNow } from './lib/store';
+import { StoreProvider, useStore, demoNow, api } from './lib/store';
+import { Login, VenueLogin, SetupScreen, Splash } from './auth/Login';
+import AccountsAdmin from './admin/Accounts';
 import { NavContext } from './lib/nav';
 import type { Role } from './lib/types';
 import { Button, cx, Modal, Skeleton, ErrorState } from './components/ui';
@@ -93,6 +95,7 @@ const NAV: Record<Exclude<Role, 'venue'>, NavItem[]> = {
     { id: 'commitments', label: 'Commitments', icon: Target, el: CommitmentsAdmin, group: 'Measure' },
     { id: 'certificates', label: 'Certificates', icon: Award, el: CertificatesAdmin, group: 'Measure' },
     { id: 'reports', label: 'Reports', icon: FileBarChart, el: ReportsAdmin, mobile: true, group: 'Measure' },
+    { id: 'accounts', label: 'Sign-in & codes', icon: KeyRound, el: AccountsAdmin, group: 'Govern' },
     { id: 'access', label: 'Access & audit', icon: ShieldCheck, el: AccessAdmin, group: 'Govern' },
   ],
   leadership: [
@@ -134,7 +137,7 @@ class Boundary extends Component<{ children: React.ReactNode; onReset: () => voi
   state = { err: null as Error | null };
   static getDerivedStateFromError(err: Error) { return { err }; }
   render() {
-    if (this.state.err) return <div className="p-6"><ErrorState body={`${this.state.err.message}. Your data is safe in this browser.`} action={<Button onClick={() => { this.setState({ err: null }); this.props.onReset(); }}>Go back home</Button>} /></div>;
+    if (this.state.err) return <div className="p-6"><ErrorState body={`${this.state.err.message}. Your saved data is safe.`} action={<Button onClick={() => { this.setState({ err: null }); this.props.onReset(); }}>Go back home</Button>} /></div>;
     return this.props.children;
   }
 }
@@ -156,10 +159,17 @@ function Logo({ compact = false }: { compact?: boolean }) {
 }
 
 function ClockMenu() {
-  const { db, update } = useStore();
+  const { db, update, demoMode, actor } = useStore();
   const [open, setOpen] = useState(false);
   const [now, setNow] = useState(demoNow(db));
   useEffect(() => { const i = setInterval(() => setNow(demoNow(db)), 1000); return () => clearInterval(i); }, [db]);
+  if (!(demoMode && actor?.role === 'admin')) {
+    return (
+      <div className="flex h-10 items-center gap-1.5 rounded-xl bg-amber-50 px-2.5 text-xs font-semibold text-amber-700 ring-1 ring-inset ring-amber-100" title="Maldives time">
+        <Clock size={15} /><span className="hidden tabular-nums sm:inline">{db.demoClock ? 'Demo clock · ' : ''}{formatDateTime(now)}</span><span className="tabular-nums sm:hidden">{formatDateTime(now).split('·')[1]}</span>
+      </div>
+    );
+  }
   return (
     <div className="relative">
       <button onClick={() => setOpen((o) => !o)} aria-expanded={open} aria-haspopup="menu" className="flex h-10 items-center gap-1.5 rounded-xl bg-amber-50 px-2.5 text-xs font-semibold text-amber-700 ring-1 ring-inset ring-amber-100 hover:bg-amber-100">
@@ -172,7 +182,7 @@ function ClockMenu() {
         <>
           <div className="fixed inset-0 z-40" onClick={() => setOpen(false)} />
           <div role="menu" className="anim-sheet absolute right-0 z-50 mt-2 w-80 max-w-[calc(100vw-2rem)] rounded-2xl bg-white p-2 shadow-2xl ring-1 ring-ink/10">
-            <div className="px-3 pb-2 pt-1 text-xs text-ink-3">Simulate a moment in the event (Maldives time). The clock keeps running from the chosen point.</div>
+            <div className="px-3 pb-2 pt-1 text-xs text-ink-3">Demo mode: set the event clock for everyone (Maldives time). It keeps running from the chosen point. Choose Real time for a live event.</div>
             {CLOCKS.map((c) => (
               <button key={c.label} role="menuitemradio" aria-checked={db.demoClock === c.iso} onClick={() => { update((d) => { d.demoClock = c.iso; d.demoClockSetAt = Date.now(); }); setOpen(false); }} className={cx('flex w-full items-center justify-between rounded-xl px-3 py-2.5 text-left text-sm hover:bg-canvas', db.demoClock === c.iso && 'bg-lav-50 font-semibold text-lav-700')}>
                 {c.label}
@@ -187,23 +197,23 @@ function ClockMenu() {
 
 function AboutModal({ open, onClose }: { open: boolean; onClose: () => void }) {
   return (
-    <Modal open={open} onClose={onClose} title="About this prototype" wide footer={<Button onClick={onClose}>Got it</Button>}>
+    <Modal open={open} onClose={onClose} title="About BML Refresher" wide footer={<Button onClick={onClose}>Got it</Button>}>
       <div className="space-y-4 text-sm text-ink-2">
-        <p>This is an interactive prototype of <b>BML Refresher</b>. It runs entirely in your browser with demonstration data. The role switcher is a demo, not authentication.</p>
+        <p><b>BML Refresher</b> stores everything in a shared database, so participants’ phones, trainers’ devices, the venue screen and organisers stay in sync within a couple of seconds.</p>
         <div className="grid gap-3 sm:grid-cols-2">
-          <div className="rounded-2xl bg-teal-50 p-4"><div className="mb-1 font-bold text-teal-700">Working in this prototype</div><ul className="list-disc space-y-1 pl-4">
-            <li>All navigation, forms, notes, quizzes, polls, word cloud, feedback</li><li>Agenda editing, validation and publishing</li><li>Event create / duplicate / archive</li><li>CSV participant import with validation</li><li>Teams, scoring with duplicate protection, leaderboards</li><li>Presenter mode with a sample deck or uploaded slide images</li><li>Saved in this browser (localStorage) where allowed</li></ul></div>
-          <div className="rounded-2xl bg-amber-50 p-4"><div className="mb-1 font-bold text-amber-700">Simulated or future</div><ul className="list-disc space-y-1 pl-4">
-            <li>Venue sync: same-browser tabs only (BroadcastChannel), not cross-device real-time</li><li>QR check-in: demo scan; no camera, no server validation</li><li>Sample audience responses are generated</li><li>PPTX/PDF conversion, email/Teams, SSO, AI companion: future</li><li>Exports: CSV and browser print only</li><li>All participant names, figures and feedback are fictional</li></ul></div>
+          <div className="rounded-2xl bg-teal-50 p-4"><div className="mb-1 font-bold text-teal-700">Working</div><ul className="list-disc space-y-1 pl-4">
+            <li>Personal sign-in with access codes; permissions checked on the server</li><li>Shared live sessions, quizzes, polls, word clouds and Q&amp;A across devices</li><li>QR check-in with rotating server-signed codes (scan with the phone camera)</li><li>Server-side scoring with duplicate protection</li><li>Agenda drafts and publishing, events, CSV import, reports, audit log</li></ul></div>
+          <div className="rounded-2xl bg-amber-50 p-4"><div className="mb-1 font-bold text-amber-700">Not yet / limits</div><ul className="list-disc space-y-1 pl-4">
+            <li>Corporate (Microsoft Entra ID) sign-in: future</li><li>PPTX/PDF conversion: upload slide images instead</li><li>Email/Teams notifications, AI companion: future</li><li>Updates arrive by polling every ~2 s, not push</li><li>Demo mode, when on, adds one-tap demo sign-in and fictional data</li></ul></div>
         </div>
-        <p className="text-xs text-ink-3">Production architecture, data model and integration checklist: see <code>docs/</code> in the repository.</p>
+        <p className="text-xs text-ink-3">See README and docs/ in the repository for setup and architecture.</p>
       </div>
     </Modal>
   );
 }
 
 function Shell() {
-  const { role, setRole, toasts, dismissToast, confetti, online, persisted, reset, toast } = useStore();
+  const { role, setRole, toasts, dismissToast, confetti, online, reset, toast, actor, demoMode, applyRemote, allowedRoles } = useStore();
   const initial = useMemo(() => {
     const h = window.location.hash.replace('#', '');
     const [r, v] = h.split('-');
@@ -227,7 +237,20 @@ function Shell() {
     window.addEventListener('hashchange', onHash);
     return () => window.removeEventListener('hashchange', onHash);
   }, [setRole]);
-  useEffect(() => { const t = setTimeout(() => setLoading(false), 450); return () => clearTimeout(t); }, []);
+  useEffect(() => { const t = setTimeout(() => setLoading(false), 250); return () => clearTimeout(t); }, []);
+  // Check-in links from the venue QR code: /?checkin=<payload>
+  useEffect(() => {
+    const params = new URLSearchParams(window.location.search);
+    const payload = params.get('checkin');
+    if (!payload) return;
+    try { history.replaceState(null, '', window.location.pathname + window.location.hash); } catch { /* ignore */ }
+    if (actor?.role !== 'participant') { toast('Sign in as a participant to check in with this code.', 'warn'); return; }
+    setRole('participant');
+    setNav([{ view: 'attendance' }]);
+    api<{ record: any; late: boolean; title: string }>('checkin', { payload })
+      .then((r) => { applyRemote([{ c: 'attendance', k: r.record.id, v: r.record }]); toast(r.late ? `Checked in to ${r.title} · marked late` : `Checked in to ${r.title}. Welcome!`); })
+      .catch((e) => toast((e as Error).message, 'err'));
+  }, []); // eslint-disable-line
 
   const cur = nav[nav.length - 1];
   const go = useCallback((view: string, param?: string) => {
@@ -242,7 +265,7 @@ function Shell() {
     if (role !== 'venue' && window.location.hash !== h) { try { history.replaceState(null, '', h); } catch { /* sandboxed */ } }
   }, [role, cur.view]);
 
-  const switchRole = (r: Role) => { setRole(r); setNav([{ view: DEFAULT_VIEW[r] }]); setDrawer(false); };
+  const switchRole = (r: Role) => { if (!allowedRoles.includes(r)) return; setRole(r); setNav([{ view: DEFAULT_VIEW[r] }]); setDrawer(false); };
 
   if (role === 'venue') {
     return (
@@ -272,8 +295,8 @@ function Shell() {
             </div>
           ))}
         </div>
-        <Modal open={confirmReset} onClose={() => setConfirmReset(false)} title="Reset demo data?" footer={<><Button variant="secondary" onClick={() => setConfirmReset(false)}>Cancel</Button><Button onClick={() => { reset(); setConfirmReset(false); setNav([{ view: DEFAULT_VIEW[role] }]); toast('Demo data restored'); }} icon={<RotateCcw size={16} />}>Reset everything</Button></>}>
-          <p className="text-sm text-ink-2">This restores the seeded 27–28 November event and clears notes, responses, check-ins, feedback and any changes you made in this browser. Other open tabs will follow.</p>
+        <Modal open={confirmReset} onClose={() => setConfirmReset(false)} title="Reset all data?" footer={<><Button variant="secondary" onClick={() => setConfirmReset(false)}>Cancel</Button><Button variant="secondary" onClick={() => { setConfirmReset(false); reset(false).then(() => toast('Reset to the event and content only')).catch((e) => toast(e.message, 'err')); setNav([{ view: DEFAULT_VIEW[role] }]); }}>Reset without demo people</Button><Button onClick={() => { setConfirmReset(false); reset(true).then(() => toast('Demo data restored')).catch((e) => toast(e.message, 'err')); setNav([{ view: DEFAULT_VIEW[role] }]); }} icon={<RotateCcw size={16} />}>Reset with demo data</Button></>}>
+          <p className="text-sm text-ink-2">This deletes everything in the database for everyone: participants, access codes, check-ins, answers, feedback, notes and changes. It then restores the 27–28 November event. This cannot be undone.</p>
         </Modal>
         <AboutModal open={about} onClose={() => setAbout(false)} />
       </>
@@ -284,8 +307,8 @@ function Shell() {
     <NavContext.Provider value={{ ...cur, go, back }}>
       <a href="#main" className="sr-only focus:not-sr-only focus:fixed focus:left-4 focus:top-4 focus:z-[100] focus:rounded-xl focus:bg-white focus:px-4 focus:py-2 focus:shadow-xl">Skip to content</a>
       <TopBar role={role} switchRole={switchRole} onReset={() => setConfirmReset(true)} onAbout={() => setAbout(true)} onMenu={() => setDrawer(true)} />
-      {!online && <div role="status" className="flex items-center justify-center gap-2 bg-ink px-4 py-2 text-xs font-semibold text-white"><WifiOff size={14} /> You are offline. Changes are kept on this device and shown here; production would queue them and sync when the connection returns.</div>}
-      {!persisted && <div role="status" className="flex items-center justify-center gap-2 bg-amber-100 px-4 py-2 text-xs font-semibold text-amber-800"><HardDriveDownload size={14} /> This browser is not allowing local storage, so changes last only until you close this page.</div>}
+      {!online && <div role="status" className="flex items-center justify-center gap-2 bg-ink px-4 py-2 text-xs font-semibold text-white"><WifiOff size={14} /> Connection lost. Reconnecting… Changes you make now may not be saved.</div>}
+      {demoMode && <div role="status" className="flex items-center justify-center gap-2 bg-amber-100 px-4 py-1.5 text-[11px] font-semibold text-amber-800"><HardDriveDownload size={13} /> Demo mode is on: one-tap demo sign-in and fictional data. Turn DEMO_MODE off before a real event.</div>}
       <div className="mx-auto flex max-w-[1400px]">
         <aside className="sticky top-[64px] hidden h-[calc(100vh-64px)] w-64 shrink-0 overflow-y-auto border-r border-ink/5 px-3 py-5 lg:block" aria-label="Section navigation">
           <SideNav items={items} groups={groups} current={cur.view} go={(v) => setNav([{ view: v }])} role={role} />
@@ -366,9 +389,11 @@ function SideNav({ items, groups, current, go, role }: { items: NavItem[]; group
 }
 
 function RoleSelect({ role, switchRole, full }: { role: Role; switchRole: (r: Role) => void; full?: boolean }) {
+  const { allowedRoles } = useStore();
+  if (allowedRoles.length < 2) return null;
   return (
-    <div className={cx('flex items-center gap-1 rounded-2xl bg-ink/[.05] p-1', full ? 'flex-wrap' : 'hidden md:flex')} role="radiogroup" aria-label="Demo role">
-      {ROLES.map((r) => (
+    <div className={cx('flex items-center gap-1 rounded-2xl bg-ink/[.05] p-1', full ? 'flex-wrap' : 'hidden md:flex')} role="radiogroup" aria-label="View">
+      {ROLES.filter((r) => allowedRoles.includes(r.id)).map((r) => (
         <button key={r.id} role="radio" aria-checked={role === r.id} onClick={() => switchRole(r.id)} className={cx('h-9 rounded-xl px-3 text-xs font-bold transition', role === r.id ? 'bg-white text-bml shadow-sm' : 'text-ink-3 hover:text-ink')}>
           {r.short}
         </button>
@@ -379,29 +404,32 @@ function RoleSelect({ role, switchRole, full }: { role: Role; switchRole: (r: Ro
 
 function TopBar({ role, switchRole, onReset, onAbout, onMenu }: { role: Role; switchRole: (r: Role) => void; onReset: () => void; onAbout: () => void; onMenu: () => void }) {
   const [more, setMore] = useState(false);
+  const { actor, allowedRoles, signOut, syncing } = useStore();
   return (
     <header className="sticky top-0 z-30 border-b border-ink/5 bg-white/90 backdrop-blur no-print">
       <div className="mx-auto flex h-16 max-w-[1400px] items-center gap-2 px-3 sm:gap-3 sm:px-6">
         {role !== 'venue' && <button aria-label="Open menu" onClick={onMenu} className="rounded-xl p-2 text-ink-2 hover:bg-ink/5 lg:hidden"><Menu size={22} /></button>}
         <Logo compact={false} />
-        <span className="hidden rounded-md bg-ink px-1.5 py-0.5 text-[10px] font-bold uppercase tracking-wider text-white sm:inline">Prototype</span>
+        {syncing && <span className="hidden text-[11px] font-semibold text-ink-3 sm:inline" aria-live="polite">Saving…</span>}
         <div className="flex-1" />
         <RoleSelect role={role} switchRole={switchRole} />
-        <div className="md:hidden">
-          <label className="sr-only" htmlFor="role-mobile">Demo role</label>
+        {allowedRoles.length > 1 && <div className="md:hidden">
+          <label className="sr-only" htmlFor="role-mobile">View</label>
           <select id="role-mobile" value={role} onChange={(e) => switchRole(e.target.value as Role)} className="h-10 rounded-xl border-0 bg-bml-50 px-2 text-xs font-bold text-bml ring-1 ring-inset ring-bml-100">
-            {ROLES.map((r) => <option key={r.id} value={r.id}>{r.short}</option>)}
+            {ROLES.filter((r) => allowedRoles.includes(r.id)).map((r) => <option key={r.id} value={r.id}>{r.short}</option>)}
           </select>
-        </div>
+        </div>}
         <ClockMenu />
         <div className="relative">
-          <button aria-label="Demo settings" aria-expanded={more} onClick={() => setMore((m) => !m)} className="flex h-10 w-10 items-center justify-center rounded-xl text-ink-2 hover:bg-ink/5"><Settings2 size={19} /></button>
+          <button aria-label="Account and settings" aria-expanded={more} onClick={() => setMore((m) => !m)} className="flex h-10 w-10 items-center justify-center rounded-xl text-ink-2 hover:bg-ink/5"><Settings2 size={19} /></button>
           {more && (
             <>
               <div className="fixed inset-0 z-40" onClick={() => setMore(false)} />
               <div role="menu" className="anim-sheet absolute right-0 z-50 mt-2 w-60 rounded-2xl bg-white p-2 shadow-2xl ring-1 ring-ink/10">
-                <button role="menuitem" onClick={() => { setMore(false); onAbout(); }} className="flex w-full items-center gap-2 rounded-xl px-3 py-2.5 text-sm hover:bg-canvas"><Info size={16} /> What is simulated?</button>
-                <button role="menuitem" onClick={() => { setMore(false); onReset(); }} className="flex w-full items-center gap-2 rounded-xl px-3 py-2.5 text-sm text-bml hover:bg-bml-50"><RotateCcw size={16} /> Reset demo data</button>
+                <div className="px-3 pb-2 pt-1"><div className="truncate text-sm font-bold text-ink">{actor?.name}</div><div className="text-xs capitalize text-ink-3">{actor?.role}</div></div>
+                <button role="menuitem" onClick={() => { setMore(false); onAbout(); }} className="flex w-full items-center gap-2 rounded-xl px-3 py-2.5 text-sm hover:bg-canvas"><Info size={16} /> About this app</button>
+                {actor?.role === 'admin' && <button role="menuitem" onClick={() => { setMore(false); onReset(); }} className="flex w-full items-center gap-2 rounded-xl px-3 py-2.5 text-sm text-bml hover:bg-bml-50"><RotateCcw size={16} /> Reset all data</button>}
+                <button role="menuitem" onClick={() => { setMore(false); signOut(); }} className="flex w-full items-center gap-2 rounded-xl px-3 py-2.5 text-sm hover:bg-canvas"><LogOut size={16} /> Sign out</button>
               </div>
             </>
           )}
@@ -411,6 +439,16 @@ function TopBar({ role, switchRole, onReset, onAbout, onMenu }: { role: Role; sw
   );
 }
 
+function Gate({ standalone }: { standalone: boolean }) {
+  const { status, statusMessage, actor } = useStore();
+  if (status === 'loading') return <Splash />;
+  if (status === 'nodb') return <SetupScreen message={statusMessage} />;
+  if (status === 'error') return <SetupScreen message={statusMessage} error />;
+  if (status === 'signedOut' || !actor) return standalone ? <VenueLogin /> : <Login />;
+  if (standalone || actor.role === 'venue') return <VenueScreen standalone />;
+  return <Shell />;
+}
+
 export default function App() {
   const [standalone, setStandalone] = useState(() => window.location.hash === '#venue');
   useEffect(() => {
@@ -418,7 +456,6 @@ export default function App() {
     window.addEventListener('hashchange', on);
     return () => window.removeEventListener('hashchange', on);
   }, []);
-  if (standalone) return <StoreProvider initialRole="venue"><VenueScreen standalone /></StoreProvider>;
-  return <StoreProvider><Shell /></StoreProvider>;
+  return <StoreProvider><Gate standalone={standalone} /></StoreProvider>;
 }
 

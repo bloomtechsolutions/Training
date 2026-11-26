@@ -2,106 +2,108 @@
 
 **Learn. Connect. Transform.**
 
-An interactive, runnable prototype of the platform for Bank of Maldives regional refresher training. It covers four connected role experiences (Participant Hub, Trainer Studio, Refresher 360 admin, Venue Live Screen), plus Engage Live activities and Beyond Refresher. It comes preloaded with the tentative **27–28 November 2026** agenda.
+The full-stack app for Bank of Maldives regional refresher training: Participant Hub, Trainer Studio, Refresher 360 (admin), Venue Live Screen, Engage Live activities and Beyond Refresher. It ships with the tentative **27–28 November 2026** agenda.
 
-> This is a prototype. All participants, figures, feedback and scenarios are fictional demonstration data. The role switcher is a demo, not authentication. Features marked as simulated below are not production-ready.
+- **Frontend:** React + TypeScript + Tailwind (Vite), mobile-first
+- **API:** one Vercel Function (`api/handler.ts` → `server/`)
+- **Database:** Prisma Postgres on Vercel, through Prisma Client
+- **Sync:** every device polls for changes every ~2 s (about 1 s on the venue screen), so phones, trainer devices, the projector and organisers stay in step
+- **Sign-in:** personal access codes; permissions are checked on the server
 
-## Run it
+## Deploy on Vercel
 
-Requires Node 18+.
+1. **Import** the GitHub repository in Vercel. The settings come from `vercel.json`: framework Vite, build `npm run vercel-build`, output `dist`.
+2. **Connect the database:** Project → **Storage** → **Create Database** → **Prisma Postgres** → connect it to this project. This adds `DATABASE_URL`.
+3. **Environment variables** (Settings → Environment Variables):
+
+   | Variable | Required | Purpose |
+   |---|---|---|
+   | `DATABASE_URL` | yes | Added by the Prisma Postgres integration |
+   | `ADMIN_PASSWORD` | yes | Password for the built-in `admin` sign-in |
+   | `DEMO_MODE` | no | `true` adds one-tap demo sign-in (participant, trainer, leadership) and the admin demo clock. **Set to `false` for a real event.** |
+   | `SEED_DEMO_DATA` | no | `false` starts with only the event, agenda and content (no fictional participants). Default `true`. |
+   | `BLOB_READ_WRITE_TOKEN` | no | Vercel Blob store for photo and slide uploads; without it, images are stored in the database at reduced size |
+   | `SESSION_SECRET`, `QR_SECRET` | no | Fixed secrets; otherwise generated once and kept in the database |
+
+4. **Redeploy.** On the first request the app creates its tables and loads the November event. No manual migration step is needed. `prisma/migrations/` contains the same SQL if you prefer `npm run db:migrate`.
+
+## First steps after deploying
+
+1. Sign in with ID `admin` and your `ADMIN_PASSWORD`.
+2. **Events:** set the region and venue for the November event.
+3. **Participants:** import your staff with a CSV (`staff_id, name, email, region, service_centre, designation`). Each person gets an account automatically.
+4. **Sign-in & codes:** issue access codes to participants and trainers, then share them privately. A code is shown once; issuing a new one replaces the old one.
+5. **Venue screen:** on the projector computer, open `https://<your-app>/#venue` and enter the display code from *Venue screen → Get display code*.
+6. Before going live with real staff: set `DEMO_MODE=false`. You can also use *Reset all data → Reset without demo people* to remove the fictional participants.
+
+## How check-in works
+
+The venue screen shows a QR code that changes every 30 seconds. It is signed with a server secret and tied to the event and session. Participants scan it with their phone camera, which opens the app and checks them in. They can also type the 7-character code shown under it. The server checks the code, the check-in window (opens 15 minutes before the session, late after 10 minutes) and duplicates. Organisers can correct attendance; every correction needs a reason and is recorded in the audit log.
+
+## Security model
+
+- Every change is sent to `/api/mutate` and authorised per collection and role in `server/rules.ts`:
+  - Participants can only write their own data.
+  - Trainers can only change their assigned sessions.
+  - Leadership and venue displays are read-only.
+- Quiz correctness and all participant points are decided on the server. Point awards use unique keys, so nothing is counted twice. No points are given for attendance or trainer ratings.
+- What each role can read is filtered on the server:
+  - Other people's notes, feedback, attendance and commitments are never sent to them.
+  - Speaker notes are removed for participants and the venue screen.
+  - Quiz answers stay hidden until the person answers or the trainer reveals them.
+  - Anonymous questions lose the author's identity.
+- Access codes are stored as scrypt hashes. Sessions are HMAC-signed HTTP-only cookies, valid for 14 days. Sign-in attempts are throttled.
+
+## Local development
+
+You need Node 20+ and PostgreSQL (or a Prisma Postgres connection string).
 
 ```bash
 npm install
 ```
 
 ```bash
+cp .env.example .env
+```
+
+Fill in `DATABASE_URL` and `ADMIN_PASSWORD`, and set `DEMO_MODE=true` if you want demo sign-in.
+
+```bash
 npm run dev
 ```
 
-Open the URL Vite prints (usually http://localhost:5173).
-
-Other scripts:
+`npm run dev` serves both the app and the API (through a Vite middleware) at http://localhost:5173.
 
 | Command | What it does |
 |---|---|
-| `npm run build` | Type-checks and builds a static site into `dist/` |
-| `npm run build:single` | Builds one self-contained `dist-single/index.html` (used for the hosted demo) |
-| `npm run preview` | Serves the `dist/` build locally |
-| `npm run typecheck` | TypeScript check only |
-
-The build is a static site; host it on any approved static host.
-
-## Demo walkthrough
-
-Use the **role switcher** (top bar) and the **demo clock** (amber button, top right). The clock starts at *Sat 28 Nov, 09:12*, during Session 05, and keeps running. Pick another moment (before the event, a break, after the event) to see the app adapt.
-
-**Participant** (demo user “Aishath R.”)
-1. Agenda → switch Day 1 / Day 2 → expand a session → *Open session* → *My notes* → write and save.
-2. Open a trainer from the session page.
-3. Check in → *Scan QR to check in* → *Simulate scan* (or type the 7-character code shown on the venue screen).
-4. Live → Product Sprint → answer the quiz; explanations appear immediately and team points are awarded once.
-5. Feedback → rate a session (each trainer rated separately) → confirmation.
-6. Also: Notebook export, Resources, Ask Leadership, Gallery upload, Beyond Refresher (30/60/90 actions, certificate, AI companion placeholder).
-
-**Trainer** (choose a demo trainer, e.g. Hawwa Zima)
-1. Present → *Send to venue screen* → next/previous/jump, speaker notes, blackout, pointer, full screen, handover, *Launch activity*.
-2. Activities → launch Product Sprint → turn on *Simulate audience responses* → pause / close / reveal / next question → leaderboard.
-3. Session builder: add, reorder (drag or arrows) and time content blocks. Q&A: moderate and push a question to the screen.
-4. Switch to Ibrahim Dhaws → Activities → Teams & scoring → assign role plays randomly and start the prep timer.
-
-**Admin (Refresher 360)**
-1. Agenda builder → edit a time (overlaps are flagged) → *Publish changes* with a schedule-change alert (participants see it on Home).
-2. Events → create, duplicate (agenda and content only), publish, archive, *Show in apps*.
-3. Participants → *Import CSV* → *Load sample with errors* to see validation → import valid rows.
-4. Attendance monitor and audited corrections, Teams (auto-balance, moderation, Ask Leadership), Feedback (confidential aggregates), Innovation, Commitments (manager review), Certificates (rules + issue), Reports (CSV/print), Access & audit.
-
-**Leadership** sees read-only aggregated dashboards.
-
-**Venue screen**: Admin or Trainer → *Venue screen* → choose a mode. *Open screen in new window* opens `#venue` in a separate tab that follows the controls. You can also open `/#venue` directly.
-
-Use the settings icon → **Reset demo data** to start over.
-
-## What is real and what is simulated
-
-| Area | In this prototype | Production approach |
-|---|---|---|
-| Navigation, forms, notes, quizzes, polls, word cloud, feedback, ideas, commitments | Working | Same UI, server persistence |
-| Persistence | `localStorage` in this browser (falls back to memory if blocked) | PostgreSQL via authenticated API |
-| Venue screen sync | **Local demo sync** via BroadcastChannel: tabs in the same browser on the same device only | Authenticated WebSocket / approved realtime service |
-| QR attendance | **Simulated** scan; rotating codes validated locally | Server-signed, time-limited tokens, Entra ID identity, organiser validation |
-| Audience responses in trainer view | **Simulated** generator (toggle, labelled) | Real participant devices |
-| Slides | Built-in sample deck, or upload PNG/JPG/WebP slide images | Server converts PPTX/PDF to slide images; embedded media and animations handled separately |
-| PPTX/PDF/content uploads | Metadata recorded for approval; file not stored | Approved storage, file validation, malware scanning |
-| Sign-in and roles | Demo role switcher | Microsoft Entra ID SSO, server-side authorisation |
-| Email / Teams notifications | Disabled with reason | Future approved integrations |
-| Exports | CSV download + copy; browser print | Add `.xlsx` and server-rendered PDF if required |
-| Certificates | Rules evaluated; organiser issues; printable preview | Approved template, signatory and verification |
-| AI learning companion | Placeholder (disabled) | Future: grounded in approved content with citations |
-| Pre/post knowledge by region | **Demo values**, labelled | Real assessment data |
+| `npm run build` | Prisma generate, type-check, production build |
+| `npm run db:migrate` | Apply `prisma/migrations` (optional; the app also creates tables itself) |
+| `npm run db:studio` | Browse the database with Prisma Studio |
+| `npm run build:single` | The earlier offline, single-file demo (no server) |
 
 ## Project structure
 
 ```
+api/handler.ts            Vercel Function entry (all /api/* routes)
+server/
+  app.ts                  Routes: session, sign-in, bootstrap, changes, mutate, check-in, QR, admin
+  rules.ts                Authorisation, server-side scoring, read redaction
+  auth.ts                 Access codes, signed sessions, rotating QR tokens
+  db.ts, ddl.ts, seed.ts  Prisma client, schema bootstrap, seeding and reset
+prisma/                   Prisma schema and SQL migration
 src/
-  App.tsx                 Shell: role switcher, demo clock, sidebar / bottom nav, routing
-  lib/                    Types, seed data, store (persistence + tab sync), time helpers, content
-  components/             Design system (ui.tsx) and shared widgets (QR, slides, word cloud…)
-  participant/            Participant Hub screens
-  engage/                 Engage Live activities (quiz, polls, word cloud, role play, scenarios…)
-  trainer/                Trainer Studio (studio, builder, presenter, activities, Q&A)
-  admin/                  Refresher 360 modules
-  venue/                  Venue Live Screen and its controller
-docs/
-  ARCHITECTURE.md         Production architecture, data model, live state, security
-  schema.sql              PostgreSQL schema sketch
-  INTEGRATION_CHECKLIST.md
+  lib/store.tsx           Client sync: optimistic updates, diff → /api/mutate, polling /api/changes
+  lib/collections.ts      Shared client/server entity mapping and keys
+  auth/                   Sign-in, venue display sign-in, setup screen
+  participant/ trainer/ admin/ venue/ engage/   The four experiences and live activities
+docs/                     Architecture, data model sketch, integration checklist
 ```
 
-## Content rules followed
+## Known limits
 
-- The seed agenda is copied exactly from the brief, including gaps, breaks and vendor activities. Region and venue are “to be confirmed” and editable.
-- Trainers use initials; designations, departments and biographies are blank until supplied. Leadership names are not invented.
-- No BML product names, rates or procedures are stated. Scenarios and customers are fictional.
-- Personal quiz results stay private; trainer ratings never appear on public screens or leaderboards.
-
-See [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md) and [docs/INTEGRATION_CHECKLIST.md](docs/INTEGRATION_CHECKLIST.md) for production guidance and remaining limitations.
+- Updates arrive by polling (about 1–2 s), not push. That's comfortable for a 40–60 person event. For much larger audiences, add an approved realtime service.
+- Sign-in uses access codes. Microsoft Entra ID single sign-on is the recommended next step.
+- PPTX/PDF files are stored for approval but not converted. To present, upload slide images exported from PowerPoint.
+- Email/Teams notifications, `.xlsx` export and the AI learning companion are not built.
+- The data model stores each record as a JSON document with a deterministic key in a single `entity` table, with a global revision for change streaming. A fully normalised schema is sketched in `docs/schema.sql` for a later enterprise build.
+- Security review by BML information security is still needed before use with real staff data.

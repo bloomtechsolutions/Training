@@ -1,6 +1,6 @@
 import React, { useMemo, useState } from 'react';
 import { Users, Shuffle, Timer, ThumbsUp, Send, Lightbulb, ClipboardCheck, ArrowRight, CheckCircle2, RotateCcw, Sparkles, TrendingUp, TrendingDown, Camera, Target } from 'lucide-react';
-import { useStore, uid, awardPoints, useTick, teamPoints, useEvent } from '../lib/store';
+import { useStore, uid, useTick, teamPoints, useEvent } from '../lib/store';
 import { Badge, Button, Card, cx, DemoTag, inputCls, Field, Progress, SectionTitle, EmptyState } from '../components/ui';
 import { Leaderboard, TeamChip, PhotoTile } from '../components/shared';
 import { SelfPacedActivity, LiveWordCloud } from './Quiz';
@@ -251,7 +251,6 @@ export function BranchingScenario({ id }: { id: string }) {
                     update((d) => {
                       d.scenarioProgress = d.scenarioProgress.filter((p) => !(p.userId === me.id && p.scenarioId === id));
                       d.scenarioProgress.push({ userId: me.id, scenarioId: id, path: [...path, c.label], done: true, ts: Date.now() });
-                      awardPoints(d, `case:${id}:${me.id}`, me.id, me.teamId, 100, `Case study · ${sc.title}`);
                     });
                     setTimeout(() => { setNode('end'); setFb(null); celebrate(); toast('Case study complete · +100 points'); }, 1400);
                   } else if (c.next !== node) setTimeout(() => { setNode(c.next); setFb(null); }, 1400);
@@ -325,7 +324,7 @@ export function Innovation() {
           <form className="grid gap-3 p-5 sm:grid-cols-2" onSubmit={(e) => {
             e.preventDefault(); if (!valid) return;
             const id = uid('idea');
-            update((d) => { d.ideas.push({ id, eventId: ev.id, userId: me.id, teamId: me.teamId, ...f, votes: [], status: 'submitted', owner: '', due: '', progress: 0, ts: Date.now() }); awardPoints(d, `idea:${id}`, me.id, me.teamId, 100, 'Innovation submission'); });
+            update((d) => { d.ideas.push({ id, eventId: ev.id, userId: me.id, teamId: me.teamId, ...f, votes: [], status: 'submitted', owner: '', due: '', progress: 0, ts: Date.now() }); });
             setF(empty); setOpen(false); celebrate(); toast('Idea submitted · +100 points');
           }}>
             {fields.map(([k, l, ph]) => (
